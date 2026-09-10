@@ -1,30 +1,30 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg: #0c0c0e;
-    --bg2: #141416;
-    --bg3: #1a1a1e;
-    --bg4: #222228;
-    --border: #2a2a32;
-    --border2: #363640;
-    --text: #eaeaf2;
-    --text2: #8888a0;
-    --text3: #4a4a5e;
-    --accent: #f97316;
-    --accent2: #fb923c;
-    --accent-bg: rgba(249,115,22,0.1);
-    --accent-border: rgba(249,115,22,0.25);
-    --blue: #60a5fa;
-    --blue-bg: rgba(96,165,250,0.1);
-    --green: #4ade80;
-    --green-bg: rgba(74,222,128,0.1);
-    --red: #f87171;
-    --red-bg: rgba(248,113,113,0.1);
-    --yellow: #fbbf24;
-    --yellow-bg: rgba(251,191,36,0.1);
+    --bg: #f3f6f9;
+    --bg2: #ffffff;
+    --bg3: #f8fafc;
+    --bg4: #eef2f7;
+    --border: #dbe3ec;
+    --border2: #c7d2df;
+    --text: #1f2937;
+    --text2: #5f6b7a;
+    --text3: #8793a3;
+    --accent: #e7661e;
+    --accent2: #d95812;
+    --accent-bg: rgba(231,102,30,0.10);
+    --accent-border: rgba(231,102,30,0.28);
+    --blue: #2563eb;
+    --blue-bg: rgba(37,99,235,0.09);
+    --green: #168a45;
+    --green-bg: rgba(22,138,69,0.09);
+    --red: #dc3545;
+    --red-bg: rgba(220,53,69,0.08);
+    --yellow: #b7791f;
+    --yellow-bg: rgba(183,121,31,0.09);
     --radius: 9px;
     --radius-lg: 14px;
-    --shadow: 0 8px 40px rgba(0,0,0,0.5);
+    --shadow: 0 12px 34px rgba(15,23,42,0.10);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -125,7 +125,7 @@
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: var(--bg3); }
 
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.34); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 100%; max-width: 540px; max-height: 92vh; overflow-y: auto; box-shadow: var(--shadow); }
   .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); }
@@ -261,12 +261,12 @@
 }
 
 .order-modal-material-box {
-  background: linear-gradient(135deg, rgba(249,115,22,0.14), rgba(26,26,30,0.96));
+  background: linear-gradient(135deg, rgba(231,102,30,0.08), rgba(255,255,255,0.98));
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-lg);
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+  box-shadow: 0 8px 26px rgba(15,23,42,0.08);
 }
 
 .order-modal-material-name {
@@ -285,7 +285,7 @@
   font-size: 11px;
   color: var(--text2);
   font-family: 'DM Mono', monospace;
-  background: rgba(0,0,0,0.18);
+  background: rgba(15,23,42,0.04);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 3px 8px;
@@ -301,9 +301,9 @@
 }
 
 .order-unit-highlight {
-  background: rgba(249,115,22,0.18);
-  color: var(--accent2);
-  border: 1px solid rgba(249,115,22,0.38);
+  background: rgba(231,102,30,0.10);
+  color: var(--accent);
+  border: 1px solid rgba(231,102,30,0.28);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 15px;
@@ -480,4 +480,89 @@
   }
 
 .hamburger-btn { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 18px; flex-shrink: 0; }
-  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.24); z-index: 99; }
+
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT THEME POLISH
+   Keeps the existing layout/HTML intact while improving
+   readability and contrast on a bright interface.
+   ═══════════════════════════════════════════════════════ */
+
+body {
+  background: var(--bg);
+}
+
+.top-bar,
+.sidebar,
+.card,
+.stat-card,
+.auth-card,
+.modal {
+  box-shadow: 0 1px 2px rgba(15,23,42,0.03);
+}
+
+.sidebar {
+  box-shadow: 1px 0 0 rgba(15,23,42,0.02);
+}
+
+.top-bar {
+  box-shadow: 0 1px 0 rgba(15,23,42,0.02);
+}
+
+.card,
+.stat-card,
+.auth-card,
+.modal,
+.material-card,
+.selected-order-row,
+.user-pending-card {
+  border-color: var(--border);
+}
+
+.form-input,
+.search-input {
+  background-color: #ffffff;
+}
+
+.form-input:hover,
+.search-input:hover {
+  border-color: var(--border2);
+}
+
+.form-input:focus,
+.search-input:focus {
+  box-shadow: 0 0 0 3px rgba(231,102,30,0.10);
+}
+
+.btn-primary {
+  box-shadow: 0 2px 7px rgba(231,102,30,0.18);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 3px 10px rgba(231,102,30,0.22);
+}
+
+.nav-item.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+tr:hover td {
+  background: #f8fafc;
+}
+
+.material-card:hover,
+.image-library-card:hover {
+  box-shadow: 0 8px 20px rgba(15,23,42,0.07);
+}
+
+#auth-screen {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(231,102,30,0.10) 0%, transparent 70%),
+    linear-gradient(180deg, #f8fafc 0%, #eef3f7 100%);
+}
+
+::selection {
+  background: rgba(231,102,30,0.18);
+}
+

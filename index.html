@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SiteOrders | Construction Management</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div id="config-notice">
+  <div class="cn-title">⚠ Configure Supabase</div>
+  <div class="cn-text">Replace SUPABASE_URL and SUPABASE_KEY with your real credentials.</div>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🏗️</div>
+      <div>
+        <div class="auth-logo-text">Smart Effects Orders</div>
+        <div class="auth-logo-sub">Construction Materials Management</div>
+      </div>
+    </div>
+    <div id="auth-alert"></div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+    </div>
+    <div id="login-form">
+      <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="login-email" placeholder="you@company.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()">Sign In</button>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="two-col">
+        <div class="form-group"><label class="form-label">Full Name</label><input type="text" class="form-input" id="reg-name" placeholder="John Smith"></div>
+        <div class="form-group"><label class="form-label">Username</label><input type="text" class="form-input" id="reg-username" placeholder="jsmith"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="reg-email" placeholder="you@company.com"></div>
+      <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="reg-pass" placeholder="At least 8 characters"></div>
+      <button class="btn btn-primary btn-full" onclick="doRegister()">Request Access</button>
+      <div class="alert alert-warn" style="display:none;margin-top:12px" id="pending-msg">✓ Registration submitted. An admin must approve your account.</div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="layout">
+    <aside class="sidebar" id="app-sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🏗️</div>
+        <span class="sidebar-logo-text">SiteOrders</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">Main</div>
+        <button class="nav-item active" onclick="navigateTo('dashboard')" id="nav-dashboard"><span class="nav-icon">📊</span> Dashboard</button>
+        <button class="nav-item" onclick="navigateTo('pedidos')" id="nav-pedidos"><span class="nav-icon">📦</span> My Orders</button>
+        <button class="nav-item" onclick="navigateTo('nuevo-pedido')" id="nav-nuevo-pedido"><span class="nav-icon">➕</span> New Order</button>
+        <button class="nav-item" onclick="navigateTo('materiales')" id="nav-materiales"><span class="nav-icon">🧱</span> Catalog</button>
+        <div class="nav-section admin-only" style="display:none">Administration</div>
+        <button class="nav-item admin-only" onclick="navigateTo('admin-pedidos')" id="nav-admin-pedidos" style="display:none"><span class="nav-icon">📋</span> All Orders</button>
+        <button class="nav-item admin-only" onclick="navigateTo('admin-materiales')" id="nav-admin-materiales" style="display:none"><span class="nav-icon">⚙️</span> Inventory</button>
+        <button class="nav-item admin-only" onclick="navigateTo('admin-usuarios')" id="nav-admin-usuarios" style="display:none"><span class="nav-icon">👥</span> Users <span class="nav-badge" id="pending-badge" style="display:none">0</span></button>
+        <button class="nav-item admin-only" onclick="navigateTo('admin-proyectos')" id="nav-admin-proyectos" style="display:none"><span class="nav-icon">🏢</span> Sites</button>
+        <button class="nav-item admin-only" onclick="navigateTo('admin-settings')" id="nav-admin-settings" style="display:none"><span class="nav-icon">🔧</span> Settings</button>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar-sidebar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name-sidebar">–</div>
+          <div class="user-role" id="user-role-sidebar">–</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="Sign out" style="padding:6px;font-size:16px">⎋</button>
+      </div>
+    </aside>
+
+<main class="main-content">
+      <div class="top-bar">
+        <div>
+          <div class="page-title" id="top-title">Dashboard</div>
+          <div class="page-subtitle" id="top-subtitle">Welcome back</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()">☰</button>
+          <button class="btn btn-primary btn-sm" onclick="navigateTo('nuevo-pedido')">+ New Order</button>
+        </div>
+      </div>
+
+      <div class="content-area">
+
+        <!-- DASHBOARD -->
+        <div class="page active" id="page-dashboard">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">My Orders</div><div class="stat-value c-orange" id="stat-my-orders">–</div><div class="stat-sub">Total submitted</div></div>
+            <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value c-yellow" id="stat-pending">–</div><div class="stat-sub">Awaiting approval</div></div>
+            <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value c-green" id="stat-approved">–</div><div class="stat-sub">This month</div></div>
+            <div class="stat-card admin-only" style="display:none"><div class="stat-label">Active Sites</div><div class="stat-value c-blue" id="stat-projects">–</div><div class="stat-sub">Running</div></div>
+          </div>
+          <div id="pending-banner" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--yellow-bg);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius);margin-bottom:16px;font-size:13px;color:var(--yellow)">
+            <span id="pending-banner-text"></span>
+            <button class="btn btn-xs" style="background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(251,191,36,0.3)" onclick="navigateTo('admin-usuarios')">Review →</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Recent Orders</div><button class="btn btn-ghost btn-sm" onclick="navigateTo('pedidos')">View all →</button></div>
+            <div id="dashboard-orders-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+          </div>
+        </div>
+
+        <!-- MY ORDERS -->
+        <div class="page" id="page-pedidos">
+          <div class="filter-bar">
+            <input type="text" class="search-input" id="search-pedidos" placeholder="Search orders..." oninput="filterOrders()">
+            <select class="form-input" style="width:130px" id="filter-status" onchange="filterOrders()">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="delivered">Delivered</option>
+            </select>
+          </div>
+          <div class="card"><div id="orders-list"><div class="loading"><div class="spinner"></div> Loading...</div></div></div>
+        </div>
+
+        <!-- NEW ORDER -->
+        
+<!-- NEW ORDER -->
+<div class="page" id="page-nuevo-pedido">
+  <div class="card">
+    <div class="two-col" style="margin-bottom:13px">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Site / Project</label>
+        <select class="form-input" id="order-project">
+          <option value="">Select site...</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Required by (date)</label>
+        <input type="date" class="form-input" id="order-delivery-date">
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-bottom:13px">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Urgency</label>
+        <select class="form-input" id="order-urgency">
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Order Notes</label>
+        <input type="text" class="form-input" id="order-notes" placeholder="Special instructions...">
+      </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px">Find Materials</div>
+
+    <div class="filter-bar">
+      <input
+        type="text"
+        class="search-input"
+        id="order-filter-search"
+        placeholder="Search by material name or code..."
+        oninput="filterNewOrderMaterials()"
+      >
+      <select
+        class="form-input"
+        style="width:180px"
+        id="order-filter-category"
+        onchange="filterNewOrderMaterials()"
+      >
+        <option value="">All categories</option>
+      </select>
+    </div>
+
+    <div class="new-order-picker">
+      <div class="materials-grid" id="new-order-material-grid">
+        <div class="loading" style="grid-column:1/-1">
+          <div class="spinner"></div> Loading...
+        </div>
+      </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <div style="font-size:13px;font-weight:600">Selected Materials</div>
+    <div id="selected-order-items" class="selected-order-list"></div>
+
+    <div style="margin-top:16px;display:flex;gap:9px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="navigateTo('pedidos')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitOrder()">Submit Order</button>
+    </div>
+  </div>
+</div>
+
+        <!-- CATALOG -->
+        <div class="page" id="page-materiales">
+          <div class="filter-bar">
+            <input type="text" class="search-input" id="search-cat" placeholder="Search materials..." oninput="filterCatalog()">
+            <select class="form-input" style="width:160px" id="filter-cat-cat" onchange="filterCatalog()"><option value="">All categories</option></select>
+          </div>
+<div class="materials-grid" id="catalog-grid"><div class="loading" style="grid-column:1/-1"><div class="spinner"></div> Loading...</div></div>
+<div id="catalog-paginator"></div>
+        </div>
+
+        <!-- ADMIN: ALL ORDERS -->
+        <div class="page" id="page-admin-pedidos">
+          <div class="filter-bar">
+            <input type="text" class="search-input" id="search-all-orders" placeholder="Search by site, user..." oninput="filterAllOrders()">
+            <select class="form-input" style="width:130px" id="filter-all-status" onchange="filterAllOrders()">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="delivered">Delivered</option>
+            </select>
+            <select class="form-input" style="width:160px" id="filter-all-project" onchange="filterAllOrders()"><option value="">All sites</option></select>
+          </div>
+          <div class="card"><div id="all-orders-list"><div class="loading"><div class="spinner"></div> Loading...</div></div></div>
+        </div>
+
+        <!-- ADMIN: INVENTORY -->
+        <div class="page" id="page-admin-materiales">
+          <div style="margin-bottom:14px;display:flex;justify-content:flex-end;gap:9px">
+            <button class="btn btn-secondary" onclick="openModal('modal-category')">+ Category</button>
+            <button class="btn btn-primary" onclick="openMaterialModal()">+ New Material</button>
+          </div>
+          <div class="filter-bar">
+            <input type="text" class="search-input" id="search-admin-mat" placeholder="Search materials..." oninput="filterAdminMaterials()">
+            <select class="form-input" style="width:160px" id="filter-admin-cat" onchange="filterAdminMaterials()"><option value="">All categories</option></select>
+          </div>
+          <div class="card"><div id="admin-materials-list"><div class="loading"><div class="spinner"></div> Loading...</div></div></div>
+        </div>
+
+        <!-- ADMIN: USERS -->
+        <div class="page" id="page-admin-usuarios">
+          <div class="tabs">
+            <button class="tab-btn active" onclick="switchUserTab('pending')" id="tab-pending">Pending Approval <span id="tab-pending-count" class="badge badge-red" style="display:none">0</span></button>
+            <button class="tab-btn" onclick="switchUserTab('all')" id="tab-all">All Users</button>
+          </div>
+          <div id="users-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+        </div>
+
+        <!-- ADMIN: PROJECTS -->
+        <div class="page" id="page-admin-proyectos">
+          <div style="margin-bottom:14px;display:flex;justify-content:flex-end">
+            <button class="btn btn-primary" onclick="openProjectModal()">+ New Site</button>
+          </div>
+          <div class="card"><div id="projects-list"><div class="loading"><div class="spinner"></div> Loading...</div></div></div>
+        </div>
+
+        <!-- ADMIN: SETTINGS -->
+        <div class="page" id="page-admin-settings">
+          <div class="settings-grid">
+            <div class="card">
+              <div class="card-header"><div class="card-title">📁 Categories</div></div>
+              <div id="categories-list"></div>
+              <hr class="section-divider">
+              <div class="form-label" style="margin-bottom:6px">Add new category</div>
+              <div class="inline-add">
+                <input type="text" class="form-input" id="new-cat-icon" placeholder="🧱" style="width:54px;flex:none;text-align:center;font-size:18px">
+                <input type="text" class="form-input" id="new-cat-name" placeholder="Category name" onkeydown="if(event.key==='Enter')addCategory()">
+                <button class="btn btn-primary btn-sm" onclick="addCategory()">Add</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">📐 Units of Measure</div></div>
+              <div id="units-list"></div>
+              <hr class="section-divider">
+              <div class="form-label" style="margin-bottom:6px">Add new unit</div>
+              <div class="inline-add">
+                <input type="text" class="form-input" id="new-unit-name" placeholder="e.g. pallet, drum" onkeydown="if(event.key==='Enter')addUnit()">
+                <button class="btn btn-primary btn-sm" onclick="addUnit()">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- Material -->
+<div class="modal-overlay" id="modal-material">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title" id="modal-material-title">New Material</span><button class="modal-close" onclick="closeModal('modal-material')">×</button></div>
+    <div class="modal-body">
+      <div class="two-col">
+        <div class="form-group"><label class="form-label">Material ID</label><input type="text" class="form-input" id="mat-id" placeholder="MAT-001"></div>
+        <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" id="mat-name" placeholder="Portland Cement"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="mat-desc" placeholder="Material description..."></textarea></div>
+      <div class="two-col">
+        <div class="form-group"><label class="form-label">Category</label><select class="form-input" id="mat-cat"><option value="">Select...</option></select></div>
+        <div class="form-group">
+          <label class="form-label">Unit of Measure</label>
+          <input type="text" class="form-input" id="mat-unit" list="units-datalist" placeholder="kg, m², unit...">
+          <datalist id="units-datalist"></datalist>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Image</label>
+        <div class="img-upload-area" id="img-upload-area" onclick="document.getElementById('mat-img-file').click()">
+          <div id="img-placeholder"><div style="font-size:26px;margin-bottom:5px">📷</div><div style="font-size:11px;color:var(--text3)">Click to upload image</div></div>
+          <img id="img-preview-el" class="img-preview" style="display:none">
+          <input type="file" id="mat-img-file" accept="image/*" style="display:none" onchange="previewImage(this)">
+        </div>
+        <div class="image-source-actions">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openImageLibraryModal()">Choose Existing Image</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();clearMaterialImageSelection()">Clear Image</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-material')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMaterial()">Save Material</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Library -->
+<div class="modal-overlay" id="modal-image-library">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <span class="modal-title">Choose Existing Image</span>
+      <button class="modal-close" onclick="closeModal('modal-image-library')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="filter-bar">
+        <input type="text" class="search-input" id="image-library-search" placeholder="Search stored images..." oninput="renderImageLibrary()">
+        <button class="btn btn-secondary btn-sm" onclick="loadStoredImageLibrary(true)">Refresh</button>
+      </div>
+      <div id="image-library-grid" class="image-library-grid">
+        <div class="loading" style="grid-column:1/-1"><div class="spinner"></div> Loading images...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-image-library')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share Image With Similar Products -->
+<div class="modal-overlay" id="modal-share-image">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <span class="modal-title">Share Image with Similar Products</span>
+      <button class="modal-close" onclick="closeModal('modal-share-image')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="share-image-source" class="share-image-source"></div>
+
+      <div class="filter-bar">
+        <input type="text" class="search-input" id="share-image-search" placeholder="Search products by name or code..." oninput="renderShareImageProducts()">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+          <input type="checkbox" id="share-only-without-image" checked onchange="renderShareImageProducts()" style="margin-right:6px">
+          Only without image
+        </label>
+        <button class="btn btn-secondary btn-sm" onclick="selectVisibleShareProducts()">Select visible</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearShareImageSelection()">Clear</button>
+      </div>
+
+      <div id="share-image-counter" style="font-size:12px;color:var(--text2);margin-bottom:8px">0 products selected</div>
+      <div id="share-product-list" class="share-product-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-share-image')">Cancel</button>
+      <button class="btn btn-primary" onclick="applySharedImageToProducts()">Save & Apply Image</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Category -->
+<div class="modal-overlay" id="modal-category">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header"><span class="modal-title">New Category</span><button class="modal-close" onclick="closeModal('modal-category')">×</button></div>
+    <div class="modal-body">
+      <div class="two-col">
+        <div class="form-group"><label class="form-label">Icon</label><input type="text" class="form-input" id="modal-cat-icon" placeholder="🧱" maxlength="4" style="text-align:center;font-size:20px"></div>
+        <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" id="modal-cat-name" placeholder="Category name" onkeydown="if(event.key==='Enter')saveModalCategory()"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-category')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveModalCategory()">Add Category</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project -->
+<div class="modal-overlay" id="modal-project">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title" id="modal-project-title">New Site</span><button class="modal-close" onclick="closeModal('modal-project')">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Site Name</label><input type="text" class="form-input" id="proj-name" placeholder="North Tower Building"></div>
+      <div class="two-col">
+        <div class="form-group"><label class="form-label">Code</label><input type="text" class="form-input" id="proj-code" placeholder="SITE-001"></div>
+        <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="proj-status"><option value="activo">Active</option><option value="pausado">On Hold</option><option value="finalizado">Completed</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" id="proj-address" placeholder="123 Main St, City"></div>
+      <div class="form-group"><label class="form-label">Site Manager</label><input type="text" class="form-input" id="proj-manager" placeholder="Manager name"></div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="proj-desc" placeholder="Project description..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-project')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProject()">Save Site</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order Detail -->
+<div class="modal-overlay" id="modal-order-detail">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header"><span class="modal-title">Order Detail</span><button class="modal-close" onclick="closeModal('modal-order-detail')">×</button></div>
+    <div class="modal-body" id="order-detail-body"></div>
+    <div class="modal-footer" id="order-detail-footer"></div>
+  </div>
+</div>
+
+<!-- Material Image Preview -->
+<div class="modal-overlay" id="modal-item-image" onclick="this.classList.remove('open')">
+  <div class="modal" style="max-width:480px;background:var(--bg2)" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title" id="item-image-modal-title">Material Image</span>
+      <button class="modal-close" onclick="closeModal('modal-item-image')">×</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:16px">
+      <img id="item-image-modal-img" src="" alt="" style="max-width:100%;max-height:60vh;object-fit:contain;border-radius:var(--radius)">
+    </div>
+  </div>
+</div>
+
+<!-- Order Item Quantity -->
+<div class="modal-overlay" id="modal-order-item">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title">Add Material</span>
+      <button class="modal-close" onclick="closeModal('modal-order-item')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="order-modal-material-box">
+        <div class="order-modal-material-name" id="order-item-modal-name">–</div>
+        <div class="order-modal-material-code" id="order-item-modal-code">–</div>
+        <div class="order-modal-material-meta" id="order-item-modal-meta"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Quantity</label>
+        <input type="number" class="form-input" id="order-item-modal-qty" min="0.01" step="0.01" placeholder="0">
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Notes (optional)</label>
+        <input type="text" class="form-input" id="order-item-modal-notes" placeholder="Notes for this item">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-order-item')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmOrderItemSelection()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="./js/config.js"></script>
+<script src="./js/state.js"></script>
+<script src="./js/core.js"></script>
+<script src="./js/settings.js"></script>
+<script src="./js/projects-data.js"></script>
+<script src="./js/auth.js"></script>
+<script src="./js/navigation.js"></script>
+<script src="./js/orders.js"></script>
+<script src="./js/materials.js"></script>
+<script src="./js/users.js"></script>
+<script src="./js/projects-admin.js"></script>
+<script src="./js/documents.js"></script>
+<script src="./js/ui.js"></script>
+</body>
+</html>

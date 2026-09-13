@@ -19,5 +19,5 @@ document.addEventListener('click',e=>{if(e.target.classList.contains('modal-over
 // ui.js is currently the final legacy script in index.html; loading these files
 // synchronously here guarantees that role/workflow overrides are registered
 // before DOMContentLoaded initializes the application.
-document.write('<script src="./js/permissions.js?v=2"><\\/script>');
-document.write('<script src="./js/workflow-v2.js?v=2"><\\/script>');
+document.write('<script src="./js/permissions.js?v=2"><\/script>');
+document.write('<script src="./js/workflow-v2.js?v=2"><\/script>');

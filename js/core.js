@@ -1,5 +1,7 @@
 'use strict';
 
+let profileLoadInFlight=null;
+
 window.addEventListener('DOMContentLoaded',()=>{
   if(SUPABASE_URL.includes('TU_PROYECTO')){
     document.getElementById('config-notice').style.display='block';
@@ -7,12 +9,33 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
   try{
     sb=createClient(SUPABASE_URL,SUPABASE_KEY);
+
     sb.auth.onAuthStateChange((ev,session)=>{
-      if(session?.user){currentUser=session.user;loadProfile();}
-      else showAuth();
+      if(session?.user){
+        const sameUser=currentUser?.id===session.user.id;
+        currentUser=session.user;
+
+        // Supabase can emit repeated auth events when a tab regains focus or
+        // a token is refreshed. Do not rebuild the whole app in those cases.
+        if(!sameUser||!currentProfile)loadProfile();
+      }else{
+        currentUser=null;
+        currentProfile=null;
+        showAuth();
+      }
     });
-    sb.auth.getSession().then(({data})=>{if(!data.session)showAuth();});
-  }catch(e){showAuth();}
+
+    sb.auth.getSession().then(({data})=>{
+      const user=data.session?.user||null;
+      if(!user){showAuth();return;}
+      const sameUser=currentUser?.id===user.id;
+      currentUser=user;
+      if(!sameUser||!currentProfile)loadProfile();
+    });
+  }catch(e){
+    console.error('Supabase initialization error:',e);
+    showAuth();
+  }
 });
 
 function showAuth(){
@@ -21,15 +44,32 @@ function showAuth(){
 }
 
 async function loadProfile(){
-  const{data,error}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
-  if(error||!data){showAuth();return;}
-  currentProfile=data;
-  if(data.status!=='activo'){
-    await sb.auth.signOut();
-    showAuthMsg('error','Your account is pending admin approval.');
-    return;
+  if(profileLoadInFlight)return profileLoadInFlight;
+
+  profileLoadInFlight=(async()=>{
+    const userId=currentUser?.id;
+    if(!userId){showAuth();return;}
+
+    const{data,error}=await sb.from('profiles').select('*').eq('id',userId).single();
+    if(error||!data){showAuth();return;}
+
+    // Ignore a stale request if the authenticated user changed while loading.
+    if(currentUser?.id!==userId)return;
+
+    currentProfile=data;
+    if(data.status!=='activo'){
+      await sb.auth.signOut();
+      showAuthMsg('error','Your account is pending admin approval.');
+      return;
+    }
+    showApp();
+  })();
+
+  try{
+    return await profileLoadInFlight;
+  }finally{
+    profileLoadInFlight=null;
   }
-  showApp();
 }
 
 function showApp(){

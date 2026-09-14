@@ -26,3 +26,5 @@ jobs:
             echo "Checking $file"
             node --check "$file"
           done
+      - name: Test material image preview regression
+        run: node tests/image-preview-regression.js

@@ -202,13 +202,64 @@ function enhanceOrderImageButtons(){
   enhanceLegacyOrderImageButtons();
 }
 
+function enhanceLogoutButton(){
+  const button=document.querySelector('.sidebar-user button[onclick="doLogout()"]');
+  if(!button||button.dataset.largeLogoutButton==='1')return;
+
+  button.dataset.largeLogoutButton='1';
+  button.type='button';
+  button.className='btn sidebar-logout-power-btn';
+  button.title='Sign out';
+  button.setAttribute('aria-label','Sign out');
+  button.replaceChildren();
+  button.style.cssText='width:52px;height:52px;min-width:52px;min-height:52px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;line-height:1;flex:0 0 52px;color:#ef4444;border:1px solid rgba(239,68,68,.42);background:rgba(239,68,68,.10);box-shadow:0 0 0 1px rgba(239,68,68,.06) inset;transition:transform .15s ease,background .15s ease,border-color .15s ease';
+
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 24 24');
+  svg.setAttribute('width','30');
+  svg.setAttribute('height','30');
+  svg.setAttribute('aria-hidden','true');
+  svg.setAttribute('focusable','false');
+  svg.style.cssText='display:block;pointer-events:none';
+
+  const stem=document.createElementNS('http://www.w3.org/2000/svg','path');
+  stem.setAttribute('d','M12 2v10');
+  stem.setAttribute('fill','none');
+  stem.setAttribute('stroke','currentColor');
+  stem.setAttribute('stroke-width','2.4');
+  stem.setAttribute('stroke-linecap','round');
+
+  const ring=document.createElementNS('http://www.w3.org/2000/svg','path');
+  ring.setAttribute('d','M6.34 6.34a8 8 0 1 0 11.32 0');
+  ring.setAttribute('fill','none');
+  ring.setAttribute('stroke','currentColor');
+  ring.setAttribute('stroke-width','2.4');
+  ring.setAttribute('stroke-linecap','round');
+
+  svg.append(stem,ring);
+  button.appendChild(svg);
+
+  button.addEventListener('mouseenter',()=>{
+    button.style.background='rgba(239,68,68,.18)';
+    button.style.borderColor='rgba(239,68,68,.65)';
+    button.style.transform='scale(1.05)';
+  });
+  button.addEventListener('mouseleave',()=>{
+    button.style.background='rgba(239,68,68,.10)';
+    button.style.borderColor='rgba(239,68,68,.42)';
+    button.style.transform='scale(1)';
+  });
+}
+
 (function installSafeOrderImagePreview(){
   const originalViewOrder=window.viewOrder;
-  if(typeof originalViewOrder!=='function')return;
+  if(typeof originalViewOrder==='function'){
+    window.viewOrder=async function(...args){
+      const result=await originalViewOrder.apply(this,args);
+      enhanceOrderImageButtons();
+      return result;
+    };
+  }
 
-  window.viewOrder=async function(...args){
-    const result=await originalViewOrder.apply(this,args);
-    enhanceOrderImageButtons();
-    return result;
-  };
+  enhanceLogoutButton();
 })();

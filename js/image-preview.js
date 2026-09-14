@@ -91,13 +91,41 @@ function buildSafeMaterialImageButton(item){
 
   const button=document.createElement('button');
   button.type='button';
-  button.className='btn btn-secondary btn-sm material-image-preview-btn';
-  button.title='Preview image';
-  button.setAttribute('aria-label',`Preview image: ${materialName}`);
+  button.className='btn btn-secondary material-image-preview-btn';
+  button.title='View image';
+  button.setAttribute('aria-label',`View image: ${materialName}`);
   button.dataset.imageUrl=imageUrl;
   button.dataset.imageName=materialName;
   button.dataset.safeImageButton='1';
-  button.textContent='Preview';
+  button.style.cssText='width:60px;height:60px;min-width:60px;min-height:60px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;cursor:pointer;line-height:1;flex:0 0 60px';
+
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 24 24');
+  svg.setAttribute('width','38');
+  svg.setAttribute('height','38');
+  svg.setAttribute('aria-hidden','true');
+  svg.setAttribute('focusable','false');
+  svg.style.cssText='display:block;pointer-events:none';
+
+  const eye=document.createElementNS('http://www.w3.org/2000/svg','path');
+  eye.setAttribute('d','M2.4 12s3.4-6 9.6-6 9.6 6 9.6 6-3.4 6-9.6 6-9.6-6-9.6-6Z');
+  eye.setAttribute('fill','none');
+  eye.setAttribute('stroke','currentColor');
+  eye.setAttribute('stroke-width','1.8');
+  eye.setAttribute('stroke-linecap','round');
+  eye.setAttribute('stroke-linejoin','round');
+
+  const pupil=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  pupil.setAttribute('cx','12');
+  pupil.setAttribute('cy','12');
+  pupil.setAttribute('r','2.8');
+  pupil.setAttribute('fill','none');
+  pupil.setAttribute('stroke','currentColor');
+  pupil.setAttribute('stroke-width','1.8');
+
+  svg.append(eye,pupil);
+  button.appendChild(svg);
+
   button.addEventListener('click',event=>{
     event.preventDefault();
     event.stopPropagation();
@@ -174,13 +202,66 @@ function enhanceOrderImageButtons(){
   enhanceLegacyOrderImageButtons();
 }
 
+function enhanceLogoutButton(){
+  if(typeof document==='undefined')return;
+
+  const button=document.querySelector('.sidebar-user button[onclick="doLogout()"]');
+  if(!button||button.dataset.largeLogoutButton==='1')return;
+
+  button.dataset.largeLogoutButton='1';
+  button.type='button';
+  button.className='btn sidebar-logout-power-btn';
+  button.title='Sign out';
+  button.setAttribute('aria-label','Sign out');
+  button.replaceChildren();
+  button.style.cssText='width:52px;height:52px;min-width:52px;min-height:52px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;line-height:1;flex:0 0 52px;color:#ef4444;border:1px solid rgba(239,68,68,.42);background:rgba(239,68,68,.10);box-shadow:0 0 0 1px rgba(239,68,68,.06) inset;transition:transform .15s ease,background .15s ease,border-color .15s ease';
+
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 24 24');
+  svg.setAttribute('width','30');
+  svg.setAttribute('height','30');
+  svg.setAttribute('aria-hidden','true');
+  svg.setAttribute('focusable','false');
+  svg.style.cssText='display:block;pointer-events:none';
+
+  const stem=document.createElementNS('http://www.w3.org/2000/svg','path');
+  stem.setAttribute('d','M12 2v10');
+  stem.setAttribute('fill','none');
+  stem.setAttribute('stroke','currentColor');
+  stem.setAttribute('stroke-width','2.4');
+  stem.setAttribute('stroke-linecap','round');
+
+  const ring=document.createElementNS('http://www.w3.org/2000/svg','path');
+  ring.setAttribute('d','M6.34 6.34a8 8 0 1 0 11.32 0');
+  ring.setAttribute('fill','none');
+  ring.setAttribute('stroke','currentColor');
+  ring.setAttribute('stroke-width','2.4');
+  ring.setAttribute('stroke-linecap','round');
+
+  svg.append(stem,ring);
+  button.appendChild(svg);
+
+  button.addEventListener('mouseenter',()=>{
+    button.style.background='rgba(239,68,68,.18)';
+    button.style.borderColor='rgba(239,68,68,.65)';
+    button.style.transform='scale(1.05)';
+  });
+  button.addEventListener('mouseleave',()=>{
+    button.style.background='rgba(239,68,68,.10)';
+    button.style.borderColor='rgba(239,68,68,.42)';
+    button.style.transform='scale(1)';
+  });
+}
+
 (function installSafeOrderImagePreview(){
   const originalViewOrder=window.viewOrder;
-  if(typeof originalViewOrder!=='function')return;
+  if(typeof originalViewOrder==='function'){
+    window.viewOrder=async function(...args){
+      const result=await originalViewOrder.apply(this,args);
+      enhanceOrderImageButtons();
+      return result;
+    };
+  }
 
-  window.viewOrder=async function(...args){
-    const result=await originalViewOrder.apply(this,args);
-    enhanceOrderImageButtons();
-    return result;
-  };
+  enhanceLogoutButton();
 })();

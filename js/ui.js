@@ -25,3 +25,4 @@ document.write('<script src="./js/image-preview.js?v=1"><\/script>');
 document.write('<script src="./js/new-order-pagination.js?v=1"><\/script>');
 document.write('<script src="./js/order-item-preview.js?v=1"><\/script>');
 document.write('<script src="./js/app-stability.js?v=1"><\/script>');
+document.write('<script src="./js/loading-state-fix.js?v=1"><\/script>');

@@ -74,16 +74,20 @@ function previewOrderItemImageFromButton(button){
   previewOrderItemImage(button.dataset.imageUrl||'',button.dataset.imageName||'Material Image');
 }
 
-function buildSafeMaterialImageButton(item){
+function getMaterialImageData(item){
   const imageUrl=normalizeMaterialImageUrl(item?.materiales?.imagen_url||item?.imagen_url||'');
-  if(!imageUrl)return null;
-
   const materialName=String(
     item?.material_name_snapshot||
     item?.materiales?.nombre||
     item?.nombre||
     'Material Image'
   );
+  return {imageUrl,materialName};
+}
+
+function buildSafeMaterialImageButton(item){
+  const {imageUrl,materialName}=getMaterialImageData(item);
+  if(!imageUrl)return null;
 
   const button=document.createElement('button');
   button.type='button';
@@ -113,10 +117,19 @@ function enhanceWorkflowOrderImageButtons(){
     const item=items[index];
     if(!item)return;
 
-    row.querySelectorAll('.material-image-preview-btn').forEach(el=>el.remove());
+    const {imageUrl,materialName}=getMaterialImageData(item);
+    const existing=row.querySelector('.material-image-preview-btn');
+
+    if(!imageUrl){
+      existing?.remove();
+      return;
+    }
+
+    if(existing&&existing.dataset.imageUrl===imageUrl&&existing.dataset.imageName===materialName)return;
+    existing?.remove();
+
     const button=buildSafeMaterialImageButton(item);
     if(!button)return;
-
     const header=row.firstElementChild;
     if(header)header.appendChild(button);
     else row.insertBefore(button,row.firstChild);
@@ -136,8 +149,12 @@ function enhanceLegacyOrderImageButtons(){
     const cell=row.querySelector('td:first-child');
     if(!item||!cell)return;
 
-    const button=buildSafeMaterialImageButton(item);
+    const {imageUrl,materialName}=getMaterialImageData(item);
+    const existing=cell.querySelector('.material-image-preview-btn');
+    if(existing&&existing.dataset.imageUrl===imageUrl&&existing.dataset.imageName===materialName)return;
+
     cell.replaceChildren();
+    const button=buildSafeMaterialImageButton(item);
     if(button){
       cell.appendChild(button);
     }else{
@@ -159,27 +176,11 @@ function enhanceOrderImageButtons(){
 
 (function installSafeOrderImagePreview(){
   const originalViewOrder=window.viewOrder;
-  if(typeof originalViewOrder==='function'){
-    window.viewOrder=async function(...args){
-      const result=await originalViewOrder.apply(this,args);
-      enhanceOrderImageButtons();
-      return result;
-    };
-  }
+  if(typeof originalViewOrder!=='function')return;
 
-  // Defensive fallback: if another renderer updates the order modal later,
-  // re-apply the safe buttons without relying on inline JS string arguments.
-  const body=document.getElementById('order-detail-body');
-  if(body&&typeof MutationObserver!=='undefined'){
-    let scheduled=false;
-    const observer=new MutationObserver(()=>{
-      if(scheduled)return;
-      scheduled=true;
-      queueMicrotask(()=>{
-        scheduled=false;
-        enhanceOrderImageButtons();
-      });
-    });
-    observer.observe(body,{childList:true,subtree:true});
-  }
+  window.viewOrder=async function(...args){
+    const result=await originalViewOrder.apply(this,args);
+    enhanceOrderImageButtons();
+    return result;
+  };
 })();

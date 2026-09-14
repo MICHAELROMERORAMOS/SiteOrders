@@ -91,13 +91,13 @@ function buildSafeMaterialImageButton(item){
 
   const button=document.createElement('button');
   button.type='button';
-  button.className='btn btn-ghost btn-xs material-image-preview-btn';
-  button.title='View image';
-  button.setAttribute('aria-label',`View image: ${materialName}`);
+  button.className='btn btn-secondary btn-sm material-image-preview-btn';
+  button.title='Preview image';
+  button.setAttribute('aria-label',`Preview image: ${materialName}`);
   button.dataset.imageUrl=imageUrl;
   button.dataset.imageName=materialName;
   button.dataset.safeImageButton='1';
-  button.textContent='🖼';
+  button.textContent='Preview';
   button.addEventListener('click',event=>{
     event.preventDefault();
     event.stopPropagation();

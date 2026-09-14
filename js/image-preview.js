@@ -91,13 +91,41 @@ function buildSafeMaterialImageButton(item){
 
   const button=document.createElement('button');
   button.type='button';
-  button.className='btn btn-secondary btn-sm material-image-preview-btn';
-  button.title='Preview image';
-  button.setAttribute('aria-label',`Preview image: ${materialName}`);
+  button.className='btn btn-secondary material-image-preview-btn';
+  button.title='View image';
+  button.setAttribute('aria-label',`View image: ${materialName}`);
   button.dataset.imageUrl=imageUrl;
   button.dataset.imageName=materialName;
   button.dataset.safeImageButton='1';
-  button.textContent='Preview';
+  button.style.cssText='width:60px;height:60px;min-width:60px;min-height:60px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;cursor:pointer;line-height:1;flex:0 0 60px';
+
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 24 24');
+  svg.setAttribute('width','38');
+  svg.setAttribute('height','38');
+  svg.setAttribute('aria-hidden','true');
+  svg.setAttribute('focusable','false');
+  svg.style.cssText='display:block;pointer-events:none';
+
+  const eye=document.createElementNS('http://www.w3.org/2000/svg','path');
+  eye.setAttribute('d','M2.4 12s3.4-6 9.6-6 9.6 6 9.6 6-3.4 6-9.6 6-9.6-6-9.6-6Z');
+  eye.setAttribute('fill','none');
+  eye.setAttribute('stroke','currentColor');
+  eye.setAttribute('stroke-width','1.8');
+  eye.setAttribute('stroke-linecap','round');
+  eye.setAttribute('stroke-linejoin','round');
+
+  const pupil=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  pupil.setAttribute('cx','12');
+  pupil.setAttribute('cy','12');
+  pupil.setAttribute('r','2.8');
+  pupil.setAttribute('fill','none');
+  pupil.setAttribute('stroke','currentColor');
+  pupil.setAttribute('stroke-width','1.8');
+
+  svg.append(eye,pupil);
+  button.appendChild(svg);
+
   button.addEventListener('click',event=>{
     event.preventDefault();
     event.stopPropagation();

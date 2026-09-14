@@ -203,6 +203,8 @@ function enhanceOrderImageButtons(){
 }
 
 function enhanceLogoutButton(){
+  if(typeof document==='undefined')return;
+
   const button=document.querySelector('.sidebar-user button[onclick="doLogout()"]');
   if(!button||button.dataset.largeLogoutButton==='1')return;
 

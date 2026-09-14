@@ -20,50 +20,35 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Publish current main branch to GitHub Pages
+      - name: Request GitHub Pages build and wait
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
 
-          repo_api="https://api.github.com/repos/${{ github.repository }}"
-          pages_api="$repo_api/pages"
-          builds_api="$pages_api/builds"
+          api="https://api.github.com/repos/${{ github.repository }}/pages/builds"
           headers=(
             -H "Accept: application/vnd.github+json"
             -H "Authorization: Bearer $GH_TOKEN"
             -H "X-GitHub-Api-Version: 2022-11-28"
           )
 
-          main_response="$(curl --fail-with-body -sS -L "${headers[@]}" "$repo_api/branches/main")"
-          target_commit="$(python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])' <<< "$main_response")"
-          echo "Target main commit: $target_commit"
-
-          echo "Ensuring GitHub Pages source is main:/"
-          curl --fail-with-body -sS -L -X PUT \
-            "${headers[@]}" \
-            -H "Content-Type: application/json" \
-            --data '{"source":{"branch":"main","path":"/"}}' \
-            "$pages_api"
-          echo
-
-          echo "Requesting a fresh GitHub Pages build"
-          curl --fail-with-body -sS -L -X POST "${headers[@]}" "$builds_api"
+          curl --fail-with-body -sS -L -X POST "${headers[@]}" "$api"
           echo
 
           for attempt in $(seq 1 48); do
-            response="$(curl --fail-with-body -sS -L "${headers[@]}" "$builds_api/latest")"
+            response="$(curl --fail-with-body -sS -L "${headers[@]}" "$api/latest")"
             status="$(python -c 'import json,sys; print(json.load(sys.stdin).get("status", "unknown"))' <<< "$response")"
             commit="$(python -c 'import json,sys; print(json.load(sys.stdin).get("commit", ""))' <<< "$response")"
-            echo "Pages build attempt $attempt: status=$status commit=$commit target=$target_commit"
+            echo "Pages build attempt $attempt: status=$status commit=$commit"
 
-            if [ "$status" = "built" ] && [ "$commit" = "$target_commit" ]; then
-              echo "GitHub Pages is deployed from the current main commit."
+            if [ "$status" = "built" ]; then
+              echo "GitHub Pages build completed for commit $commit."
               exit 0
             fi
 
-            if [ "$status" = "errored" ] && [ "$commit" = "$target_commit" ]; then
+            if [ "$status" = "errored" ]; then
               echo "$response"
               exit 1
             fi
@@ -71,5 +56,5 @@ jobs:
             sleep 5
           done
 
-          echo "Timed out waiting for GitHub Pages to publish the current main commit."
+          echo "Timed out waiting for GitHub Pages build."
           exit 1

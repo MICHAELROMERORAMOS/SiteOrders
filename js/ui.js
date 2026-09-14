@@ -22,3 +22,4 @@ document.addEventListener('click',e=>{if(e.target.classList.contains('modal-over
 document.write('<script src="./js/permissions.js?v=2"><\/script>');
 document.write('<script src="./js/workflow-v2.js?v=2"><\/script>');
 document.write('<script src="./js/image-preview.js?v=1"><\/script>');
+document.write('<script src="./js/app-stability.js?v=1"><\/script>');

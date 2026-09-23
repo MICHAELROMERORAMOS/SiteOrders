@@ -648,3 +648,35 @@ tr:hover td {
   .return-actions-left { width:100%; align-items:stretch; flex-direction:column; }
   .return-actions-left .btn { width:100%; }
 }
+
+
+/* Material Return quantity modal */
+#modal-return-material-quantity { z-index: 1120; }
+.return-quantity-modal { max-width: 430px; }
+.return-quantity-material {
+  padding: 14px 15px;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg3);
+}
+.return-quantity-material-name {
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+.return-quantity-material-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text2);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+.return-quantity-modal-input {
+  font-size: 20px;
+  font-weight: 700;
+  padding: 12px 14px;
+}

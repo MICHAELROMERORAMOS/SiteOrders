@@ -10,6 +10,9 @@ function mrCanEdit(){return Boolean(currentUser&&currentProfile?.status==='activ
 function mrCanPdf(){return mrCanEdit();}
 function mrIsAdmin(){return currentProfile?.status==='activo'&&currentProfile.role==='admin';}
 function mrIsDraft(){return mrState.current?.status==='draft';}
+function mrCanDeleteDraft(){return Boolean(mrIsDraft()&&!mrState.current?.project_sequence);}
+function mrShowEditor(){document.getElementById('modal-material-return-editor')?.classList.add('open');}
+function mrHideEditor(){document.getElementById('modal-material-return-editor')?.classList.remove('open');}
 function mrEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function mrToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function mrNumber(sequence){return sequence?String(sequence).padStart(3,'0'):'Draft';}
@@ -22,13 +25,17 @@ function mrRemember(){if(!mrIsDraft())return;mrState.revision++;try{localStorage
 
 function mrUpdateActions(){
   const submitted=mrState.current?.status==='submitted';
+  const numbered=Boolean(mrState.current?.project_sequence);
   document.getElementById('return-save-action').style.display=submitted?'none':'';
   document.getElementById('return-submit-action').style.display=submitted?'none':'';
   document.getElementById('return-reopen-action').style.display=submitted&&mrIsAdmin()?'':'none';
+  document.getElementById('return-delete-action').style.display=mrCanDeleteDraft()?'':'none';
   document.querySelectorAll('.return-pdf-action').forEach(b=>b.style.display=submitted&&mrCanPdf()?'':'none');
   document.getElementById('return-workflow-note').textContent=submitted
     ?'Sent for review · Editing is locked until an administrator allows it.'
-    :'Draft · A number is assigned when you send it for review.';
+    :numbered
+      ?'Editing enabled · This Material Return keeps its assigned number.'
+      :'Draft · You can delete it until it is sent for review. Its number is assigned on submission.';
 }
 
 async function loadMaterialReturnsPage(){
@@ -36,18 +43,53 @@ async function loadMaterialReturnsPage(){
     document.getElementById('returns-list').textContent='Your account does not have access to Material Returns.';
     return;
   }
-  if(!await refreshMaterialReturnsList())return;
-  if(mrState.current){renderMaterialReturnEditor();return;}
-  let savedId;
-  try{savedId=localStorage.getItem(mrActiveKey());}catch(e){console.warn('Material Return local backup unavailable',e);}
-  const target=mrState.list.find(r=>r.id===savedId)||mrState.list[0];
-  if(target)await openMaterialReturn(target.id);
+  mrHideEditor();
+  mrState.current=null;
+  mrState.items=[];
+  mrState.revision=0;
+  await refreshMaterialReturnsList();
+}
+
+function mrReturnEntryHtml(r){
+  const numbered=Boolean(r.project_sequence);
+  const title=numbered?'Material Return '+mrNumber(r.project_sequence):'Draft';
+  const stateText=r.status==='submitted'?'Sent for review':numbered?'Editing enabled':'Draft';
+  const stateClass=r.status==='submitted'?'submitted':numbered?'reopened':'draft';
+  const itemCount=r.material_return_items?.length||0;
+  return `
+    <button type="button" class="return-list-entry" onclick="openMaterialReturn('${r.id}')">
+      <span class="return-entry-top">
+        <strong>${mrEscape(title)}</strong>
+        <span class="return-status-pill ${stateClass}">${mrEscape(stateText)}</span>
+      </span>
+      <small>${mrEscape(r.return_date)} · ${itemCount} ${itemCount===1?'item':'items'}</small>
+    </button>`;
+}
+
+function mrGroupKey(r){
+  if(r.project_id)return 'project:'+r.project_id;
+  if(r.project_sequence&&(r.project_code||r.project_name))return 'historical:'+(r.project_code||'')+'|'+(r.project_name||'');
+  return 'unassigned';
+}
+
+function mrGroupLabel(r){
+  if(r.project_id){
+    const project=allProjects.find(p=>Number(p.id)===Number(r.project_id));
+    return {
+      code:project?.codigo||r.project_code||'',
+      name:project?.nombre||r.project_name||'Project'
+    };
+  }
+  if(r.project_sequence&&(r.project_code||r.project_name)){
+    return {code:r.project_code||'',name:r.project_name||'Historical project'};
+  }
+  return {code:'',name:'No project selected'};
 }
 
 async function refreshMaterialReturnsList(){
   const {data,error}=await sb.from('material_returns')
-    .select('id,project_code,project_name,project_sequence,status,return_date,updated_at,created_by,material_return_items(id)')
-    .order('updated_at',{ascending:false}).limit(100);
+    .select('id,project_id,project_code,project_name,project_sequence,status,return_date,updated_at,created_by,material_return_items(id)')
+    .order('updated_at',{ascending:false}).limit(300);
   if(error){
     document.getElementById('returns-list').textContent='Could not load Material Returns: '+error.message;
     mrStatus(error.message,true);
@@ -55,11 +97,45 @@ async function refreshMaterialReturnsList(){
   }
   mrState.list=data||[];
   const container=document.getElementById('returns-list');
-  container.innerHTML=mrState.list.length?mrState.list.map(r=>`
-    <button type="button" class="return-list-entry ${mrState.current?.id===r.id?'active':''}" onclick="openMaterialReturn('${r.id}')">
-      <strong>${mrEscape(mrNumber(r.project_sequence))} · ${mrEscape([r.project_code,r.project_name].filter(Boolean).join(' · ')||'Project pending')}</strong>
-      <small>${mrEscape(r.return_date)} · ${r.material_return_items?.length||0} items · ${r.status==='submitted'?'Sent for review':'Draft'}</small>
-    </button>`).join(''):'<p class="return-helper">No returns yet. Create one to start a list.</p>';
+  if(!mrState.list.length){
+    container.innerHTML='<div class="return-empty-state"><strong>No Material Returns yet</strong><span>Create a new return to start a draft.</span></div>';
+    return true;
+  }
+
+  const groups=new Map();
+  mrState.list.forEach(r=>{
+    const key=mrGroupKey(r);
+    if(!groups.has(key))groups.set(key,{key,label:mrGroupLabel(r),rows:[]});
+    groups.get(key).rows.push(r);
+  });
+
+  const ordered=[...groups.values()].sort((a,b)=>{
+    if(a.key==='unassigned')return -1;
+    if(b.key==='unassigned')return 1;
+    return [a.label.code,a.label.name].filter(Boolean).join(' ').localeCompare([b.label.code,b.label.name].filter(Boolean).join(' '),undefined,{numeric:true,sensitivity:'base'});
+  });
+
+  container.innerHTML=ordered.map(group=>{
+    const drafts=group.rows
+      .filter(r=>!r.project_sequence)
+      .sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
+    const numbered=group.rows
+      .filter(r=>r.project_sequence)
+      .sort((a,b)=>Number(a.project_sequence)-Number(b.project_sequence));
+    const code=group.label.code?`<span class="return-project-code">${mrEscape(group.label.code)}</span>`:'';
+    const name=mrEscape(group.label.name);
+    return `
+      <details class="return-project-group" open>
+        <summary class="return-project-summary">
+          <span class="return-project-identity">${code}<strong>${name}</strong></span>
+          <span class="return-project-count">${group.rows.length} ${group.rows.length===1?'return':'returns'}</span>
+        </summary>
+        <div class="return-project-body">
+          ${drafts.length?`<div class="return-group-label">Drafts</div><div class="return-group-rows">${drafts.map(mrReturnEntryHtml).join('')}</div>`:''}
+          ${numbered.length?`<div class="return-group-label">Material Returns</div><div class="return-group-rows">${numbered.map(mrReturnEntryHtml).join('')}</div>`:''}
+        </div>
+      </details>`;
+  }).join('');
   return true;
 }
 
@@ -105,20 +181,24 @@ async function openMaterialReturn(id){
 function renderMaterialReturnEditor(){
   if(!mrState.current)return;
   const submitted=mrState.current.status==='submitted';
-  document.getElementById('return-editor').style.display='block';
-  document.getElementById('return-editor-title').textContent='Material Return '+mrNumber(mrState.current.project_sequence)+' · '+(mrState.current.project_code||'New draft');
+  const numbered=Boolean(mrState.current.project_sequence);
+  const title=numbered?'Material Return '+mrNumber(mrState.current.project_sequence):'Material Return Draft';
+  document.getElementById('return-editor-title').textContent=title+(mrState.current.project_code?' · '+mrState.current.project_code:'');
   const select=document.getElementById('return-project');
   select.innerHTML='<option value="">Select project...</option>';
   allProjects.forEach(p=>select.add(new Option(`${p.codigo?'['+p.codigo+'] ':''}${p.nombre}`,p.id)));
   select.value=mrState.current.project_id||'';
-  select.disabled=submitted||Boolean(mrState.current.project_sequence);
+  select.disabled=submitted||numbered;
   select.title=select.disabled?'The project is fixed after its return number is assigned.':'';
   document.getElementById('return-date').value=mrState.current.return_date||mrToday();
   document.getElementById('return-date').disabled=submitted;
   document.getElementById('return-material-search').value='';
   document.getElementById('return-material-search').disabled=submitted;
-  renderReturnMaterialMatches();renderReturnItems();mrUpdateActions();
+  renderReturnMaterialMatches();
+  renderReturnItems();
+  mrUpdateActions();
   mrStatus(submitted?'Sent for review · Locked':'Saved in Supabase');
+  mrShowEditor();
 }
 
 function renderReturnMaterialMatches(){
@@ -231,6 +311,50 @@ async function reopenMaterialReturn(){
   if(error){mrStatus('Could not allow editing: '+error.message,true);return;}
   mrState.current=data;
   renderMaterialReturnEditor();
+  await refreshMaterialReturnsList();
+}
+
+async function closeMaterialReturnEditor(){
+  if(mrState.current&&mrIsDraft()&&!await saveMaterialReturnNow())return;
+  clearTimeout(mrState.timer);
+  const id=mrState.current?.id;
+  if(id){
+    try{
+      if(localStorage.getItem(mrActiveKey())===id)localStorage.removeItem(mrActiveKey());
+    }catch(e){console.warn('Material Return local backup unavailable',e);}
+  }
+  mrHideEditor();
+  mrState.current=null;
+  mrState.items=[];
+  mrState.revision=0;
+  await refreshMaterialReturnsList();
+}
+
+async function deleteMaterialReturn(){
+  if(!mrCanDeleteDraft()||!mrState.current)return;
+  const id=mrState.current.id;
+  if(!confirm('Delete this draft Material Return? This will permanently remove the draft and all materials currently added to it.'))return;
+  clearTimeout(mrState.timer);
+  await mrState.saving.catch(()=>false);
+  mrStatus('Deleting draft...');
+  const {data,error}=await sb.from('material_returns')
+    .delete()
+    .eq('id',id)
+    .eq('status','draft')
+    .is('project_sequence',null)
+    .select('id');
+  if(error||!data?.length){
+    mrStatus('Could not delete this draft'+(error?': '+error.message:'. It may no longer be eligible for deletion.'),true);
+    return;
+  }
+  try{
+    localStorage.removeItem(mrCacheKey(id));
+    if(localStorage.getItem(mrActiveKey())===id)localStorage.removeItem(mrActiveKey());
+  }catch(e){console.warn('Material Return local backup unavailable',e);}
+  mrState.current=null;
+  mrState.items=[];
+  mrState.revision=0;
+  mrHideEditor();
   await refreshMaterialReturnsList();
 }
 

@@ -57,6 +57,8 @@ function canAccessWorkflowPage(page){
   if(['dashboard','materiales'].includes(page))return true;
   if(page==='pedidos')return !isStoreRole();
   if(page==='nuevo-pedido')return canCreateOrder();
+  if(page==='material-returns')return canCreateOrder();
+  if(page==='return-branding')return isAdminRole();
   if(page==='admin-pedidos')return canSeeManagedOrders();
   if(page==='admin-materiales')return canManageInventory();
   if(page==='admin-usuarios')return canManageUsers();

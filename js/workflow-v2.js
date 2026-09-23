@@ -6,10 +6,10 @@ var workflowProjectIds=new Set();
 var workflowEditingOrder=null;
 var workflowDialogContext=null;
 
-const wfLegacyInitNewOrder=window.initNewOrder;
-const wfLegacyRenderAdminMaterials=window.renderAdminMaterials;
-const wfLegacyOpenMaterialModal=window.openMaterialModal;
-const wfLegacySaveMaterial=window.saveMaterial;
+const wfLegacyInitNewOrder=window.siteOrdersLegacy.initNewOrder;
+const wfLegacyRenderAdminMaterials=window.siteOrdersLegacy.renderAdminMaterials;
+const wfLegacyOpenMaterialModal=window.siteOrdersLegacy.openMaterialModal;
+const wfLegacySaveMaterial=window.siteOrdersLegacy.saveMaterial;
 
 function wfEscape(value){
   return String(value??'')
@@ -103,9 +103,12 @@ function setRoleUI(){
   const users=document.getElementById('nav-admin-usuarios');
   const sites=document.getElementById('nav-admin-proyectos');
   const settings=document.getElementById('nav-admin-settings');
+  const materialReturns=document.getElementById('nav-material-returns');
+  const returnBranding=document.getElementById('nav-return-branding');
 
   if(myOrders)myOrders.style.display=isStoreRole()?'none':'';
   if(newOrder)newOrder.style.display=canCreateOrder()?'':'none';
+  if(materialReturns)materialReturns.style.display=canCreateOrder()?'':'none';
 
   if(managed){
     managed.style.display=canSeeManagedOrders()?'':'none';
@@ -119,6 +122,7 @@ function setRoleUI(){
   if(users)users.style.display=isAdminRole()?'':'none';
   if(sites)sites.style.display=isAdminRole()?'':'none';
   if(settings)settings.style.display=isAdminRole()?'':'none';
+  if(returnBranding)returnBranding.style.display=isAdminRole()?'':'none';
 
   const adminSections=[...document.querySelectorAll('.nav-section.admin-only')];
   adminSections.forEach(el=>el.style.display=(canSeeManagedOrders()||canManageInventory()||isAdminRole())?'':'none');
@@ -179,6 +183,8 @@ const WORKFLOW_PAGE_META={
   dashboard:['Dashboard','Overview'],
   pedidos:['My Orders','Orders requested for me'],
   'nuevo-pedido':['New Order','Submit a material request'],
+  'material-returns':['Material Returns','Save and edit return lists'],
+  'return-branding':['Return Branding','Company name and logo for return PDFs'],
   materiales:['Material Catalog','Browse available materials'],
   'admin-pedidos':['Orders','Workflow and material requests'],
   'admin-materiales':['Inventory','Material catalog administration'],
@@ -202,6 +208,8 @@ function navigateTo(page){
   if(page==='dashboard')loadDashboard();
   else if(page==='pedidos')loadMyOrders();
   else if(page==='nuevo-pedido')initNewOrder();
+  else if(page==='material-returns')loadMaterialReturnsPage();
+  else if(page==='return-branding')loadReturnBranding();
   else if(page==='materiales')renderCatalog();
   else if(page==='admin-pedidos')loadAllOrders();
   else if(page==='admin-materiales')renderAdminMaterials();

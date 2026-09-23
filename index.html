@@ -205,26 +205,59 @@
     </div>
   </div>
 </div>
-
-        <!-- CATALOG -->
+        <!-- MATERIAL RETURNS -->
         <div class="page" id="page-material-returns">
-          <div class="return-layout">
-            <div class="card">
-              <div class="card-header"><div class="card-title">Material Returns</div><button class="btn btn-primary btn-sm" onclick="newMaterialReturn()">+ New return</button></div>
-              <div id="returns-list" class="return-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
-            </div>
-            <div class="card" id="return-editor" style="display:none">
-            <div class="card-header"><div class="card-title" id="return-editor-title">Return draft</div><span id="return-save-status" class="return-save-status"></span></div>
-              <div class="two-col">
-                <div class="form-group"><label class="form-label">Project code and name</label><select class="form-input" id="return-project" onchange="returnDraftChanged()"><option value="">Select project...</option></select></div>
-                <div class="form-group"><label class="form-label">Return date</label><input type="date" class="form-input" id="return-date" onchange="returnDraftChanged()" oninput="returnDraftChanged()"></div>
+          <div class="card return-overview-card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Material Returns</div>
+                <p class="return-overview-subtitle">Returns are grouped by project. Open one to view or edit its materials.</p>
               </div>
-              <div class="form-group"><label class="form-label">Find a material, tool or equipment by SKU or description</label><input class="form-input" id="return-material-search" type="search" placeholder="Type an SKU or product name..." oninput="renderReturnMaterialMatches()"></div>
+              <button class="btn btn-primary btn-sm" onclick="newMaterialReturn()">+ New return</button>
+            </div>
+            <div id="returns-list" class="return-project-groups">
+              <div class="loading"><div class="spinner"></div> Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-material-return-editor">
+          <div class="modal return-editor-modal" id="return-editor">
+            <div class="modal-header return-editor-header">
+              <div class="return-editor-heading">
+                <span class="modal-title" id="return-editor-title">Material Return Draft</span>
+                <span id="return-save-status" class="return-save-status"></span>
+              </div>
+              <button class="modal-close" onclick="closeMaterialReturnEditor()" aria-label="Close Material Return">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="two-col">
+                <div class="form-group">
+                  <label class="form-label">Project code and name</label>
+                  <select class="form-input" id="return-project" onchange="returnDraftChanged()">
+                    <option value="">Select project...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Return date</label>
+                  <input type="date" class="form-input" id="return-date" onchange="returnDraftChanged()" oninput="returnDraftChanged()">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Find a material, tool or equipment by SKU or description</label>
+                <input class="form-input" id="return-material-search" type="search" placeholder="Type an SKU or product name..." oninput="renderReturnMaterialMatches()">
+              </div>
               <div id="return-material-matches" class="return-material-matches"></div>
+
               <h3 class="return-section-title">Materials to return</h3>
               <div id="return-items"></div>
+
               <div class="return-actions">
-                <span class="return-helper" id="return-workflow-note" style="margin:0"></span>
+                <div class="return-actions-left">
+                  <button class="btn btn-danger btn-sm" id="return-delete-action" onclick="deleteMaterialReturn()" style="display:none">Delete draft</button>
+                  <span class="return-helper" id="return-workflow-note" style="margin:0"></span>
+                </div>
                 <div class="return-actions-right">
                   <button class="btn btn-secondary btn-sm" id="return-save-action" onclick="saveMaterialReturnNow()">Save return</button>
                   <button class="btn btn-primary btn-sm" id="return-submit-action" onclick="submitMaterialReturn()">Send for review</button>

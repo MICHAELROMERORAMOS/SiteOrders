@@ -2,7 +2,7 @@
 
 // Return drafts are stored in Supabase. The per-user local copy covers edits
 // made just before a tab closes or while a network request is in flight.
-const mrState={current:null,items:[],list:[],revision:0,timer:null,saving:Promise.resolve(),opening:0,logoUrl:null};
+const mrState={current:null,items:[],list:[],revision:0,timer:null,saving:Promise.resolve(),opening:0,logoUrl:null,quantityMaterialId:null};
 const MR_BUCKET='material-return-branding';
 const MR_LOGO='company-logo.png';
 
@@ -227,13 +227,69 @@ function renderReturnItems(){
 }
 
 function addReturnMaterial(id){
+  openReturnMaterialQuantity(id);
+}
+
+function openReturnMaterialQuantity(id){
   if(!mrIsDraft())return;
-  const material=allMaterials.find(m=>m.id===id);if(!material)return;
+  const material=allMaterials.find(m=>m.id===id);
+  if(!material)return;
   const existing=mrState.items.find(i=>i.material_id===id);
-  if(existing)existing.quantity=Number(existing.quantity)+1;
-  else mrState.items.push({material_id:id,quantity:1,sku_snapshot:material.id_material,description_snapshot:material.descripcion||material.nombre,unit_snapshot:material.unidad_medida});
+  mrState.quantityMaterialId=id;
+
+  document.getElementById('return-qty-material-name').textContent=material.nombre||material.descripcion||'Material';
+  document.getElementById('return-qty-material-code').textContent=material.id_material||'–';
+  document.getElementById('return-qty-material-unit').textContent=material.unidad_medida||'unit';
+
+  const input=document.getElementById('return-material-qty-input');
+  input.value=existing?Number(existing.quantity):'';
+  document.getElementById('return-qty-confirm').textContent=existing?'Update quantity':'Add material';
+  document.getElementById('modal-return-material-quantity').classList.add('open');
+
+  requestAnimationFrame(()=>{
+    input.focus();
+    input.select();
+  });
+}
+
+function closeReturnMaterialQuantity(){
+  document.getElementById('modal-return-material-quantity')?.classList.remove('open');
+  mrState.quantityMaterialId=null;
+  const input=document.getElementById('return-material-qty-input');
+  if(input)input.value='';
+}
+
+function confirmReturnMaterialQuantity(){
+  if(!mrIsDraft()||!mrState.quantityMaterialId)return;
+  const material=allMaterials.find(m=>m.id===mrState.quantityMaterialId);
+  if(!material)return closeReturnMaterialQuantity();
+
+  const input=document.getElementById('return-material-qty-input');
+  const quantity=Number(input.value);
+  if(!Number.isFinite(quantity)||quantity<=0){
+    input.focus();
+    input.select();
+    return;
+  }
+
+  const existing=mrState.items.find(i=>i.material_id===material.id);
+  if(existing){
+    existing.quantity=quantity;
+  }else{
+    mrState.items.push({
+      material_id:material.id,
+      quantity,
+      sku_snapshot:material.id_material,
+      description_snapshot:material.descripcion||material.nombre,
+      unit_snapshot:material.unidad_medida
+    });
+  }
+
+  closeReturnMaterialQuantity();
   document.getElementById('return-material-search').value='';
-  renderReturnMaterialMatches();renderReturnItems();returnDraftChanged();
+  renderReturnMaterialMatches();
+  renderReturnItems();
+  returnDraftChanged();
 }
 
 function returnQuantityChanged(index,value){

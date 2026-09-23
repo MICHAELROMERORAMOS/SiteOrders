@@ -28,3 +28,5 @@ jobs:
           done
       - name: Test material image preview regression
         run: node tests/image-preview-regression.js
+      - name: Test Material Return review controls
+        run: node tests/material-return-review-regression.js

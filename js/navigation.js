@@ -28,6 +28,8 @@ function navigateTo(page){
   if(page==='dashboard')loadDashboard();
   else if(page==='pedidos')loadMyOrders();
   else if(page==='nuevo-pedido')initNewOrder();
+  else if(page==='material-returns')loadMaterialReturnsPage();
+  else if(page==='return-branding')loadReturnBranding();
   else if(page==='materiales')renderCatalog();
   else if(page==='admin-pedidos')loadAllOrders();
   else if(page==='admin-materiales')renderAdminMaterials();

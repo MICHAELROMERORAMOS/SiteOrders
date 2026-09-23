@@ -7,10 +7,12 @@ const MR_BUCKET='material-return-branding';
 const MR_LOGO='company-logo.png';
 
 function mrCanEdit(){return Boolean(currentUser&&currentProfile?.status==='activo'&&['admin','supervisor','encargado'].includes(currentProfile.role));}
-function mrCanPdf(){return Boolean(currentUser&&currentProfile?.status==='activo'&&['admin','supervisor'].includes(currentProfile.role));}
+function mrCanPdf(){return mrCanEdit();}
 function mrIsAdmin(){return currentProfile?.status==='activo'&&currentProfile.role==='admin';}
 function mrEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function mrToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function mrNumber(sequence){return sequence?String(sequence).padStart(3,'0'):'Draft';}
+function mrFilePart(value){return String(value||'').replace(/[\\/:*?"<>|\x00-\x1f]/g,' ').replace(/\s+/g,' ').trim()||'UNNAMED';}
 function mrCacheKey(id){return `siteorders:material-return:${currentUser?.id}:${id}`;}
 function mrActiveKey(){return `siteorders:active-material-return:${currentUser?.id}`;}
 function mrStatus(message,error=false){const el=document.getElementById('return-save-status');if(el){el.textContent=message;el.style.color=error?'var(--red)':'var(--text2)';}}
@@ -18,27 +20,36 @@ function mrDraft(){return {returnId:mrState.current?.id,projectId:document.getEl
 function mrRemember(){if(!mrState.current)return;mrState.revision++;try{localStorage.setItem(mrCacheKey(mrState.current.id),JSON.stringify({version:1,...mrDraft()}));}catch(e){console.warn('Material Return local backup unavailable',e);}}
 
 async function loadMaterialReturnsPage(){
-  if(!mrCanEdit())return;
+  if(!mrCanEdit()){
+    document.getElementById('returns-list').textContent='Your account does not have access to Material Returns.';
+    return;
+  }
   document.querySelectorAll('.return-pdf-action').forEach(b=>b.style.display=mrCanPdf()?'':'none');
-  await refreshMaterialReturnsList();
+  if(!await refreshMaterialReturnsList())return;
   if(mrState.current){renderMaterialReturnEditor();return;}
-  const savedId=localStorage.getItem(mrActiveKey());
+  let savedId;
+  try{savedId=localStorage.getItem(mrActiveKey());}catch(e){console.warn('Material Return local backup unavailable',e);}
   const target=mrState.list.find(r=>r.id===savedId)||mrState.list[0];
   if(target)await openMaterialReturn(target.id);
 }
 
 async function refreshMaterialReturnsList(){
   const {data,error}=await sb.from('material_returns')
-    .select('id,project_code,project_name,return_date,updated_at,created_by,material_return_items(id)')
+    .select('id,project_code,project_name,project_sequence,return_date,updated_at,created_by,material_return_items(id)')
     .order('updated_at',{ascending:false}).limit(100);
-  if(error){mrStatus(error.message,true);return;}
+  if(error){
+    document.getElementById('returns-list').textContent='Could not load Material Returns: '+error.message;
+    mrStatus(error.message,true);
+    return false;
+  }
   mrState.list=data||[];
   const container=document.getElementById('returns-list');
   container.innerHTML=mrState.list.length?mrState.list.map(r=>`
     <button type="button" class="return-list-entry ${mrState.current?.id===r.id?'active':''}" onclick="openMaterialReturn('${r.id}')">
-      <strong>${mrEscape([r.project_code,r.project_name].filter(Boolean).join(' · ')||'Project pending')}</strong>
+      <strong>${mrEscape(mrNumber(r.project_sequence))} · ${mrEscape([r.project_code,r.project_name].filter(Boolean).join(' · ')||'Project pending')}</strong>
       <small>${mrEscape(r.return_date)} · ${r.material_return_items?.length||0} items</small>
     </button>`).join(''):'<p class="return-helper">No returns yet. Create one to start a list.</p>';
+  return true;
 }
 
 async function newMaterialReturn(){
@@ -82,11 +93,13 @@ async function openMaterialReturn(id){
 function renderMaterialReturnEditor(){
   if(!mrState.current)return;
   document.getElementById('return-editor').style.display='block';
-  document.getElementById('return-editor-title').textContent='Material Return · '+(mrState.current.project_code||'New draft');
+  document.getElementById('return-editor-title').textContent='Material Return '+mrNumber(mrState.current.project_sequence)+' · '+(mrState.current.project_code||'New draft');
   const select=document.getElementById('return-project');
   select.innerHTML='<option value="">Select project...</option>';
   allProjects.forEach(p=>select.add(new Option(`${p.codigo?'['+p.codigo+'] ':''}${p.nombre}`,p.id)));
   select.value=mrState.current.project_id||'';
+  select.disabled=Boolean(mrState.current.project_sequence);
+  select.title=select.disabled?'The project and return number are fixed. Create a new return for another project.':'';
   document.getElementById('return-date').value=mrState.current.return_date||mrToday();
   document.getElementById('return-material-search').value='';
   renderReturnMaterialMatches();renderReturnItems();mrStatus('Saved in Supabase');
@@ -153,7 +166,12 @@ async function saveMaterialReturnNow(){
     if(error){mrStatus('Could not save: '+error.message,true);return false;}
     if(mrState.current?.id===draft.returnId){
       mrState.current=data;
-      if(mrState.revision===revision){localStorage.removeItem(mrCacheKey(draft.returnId));mrStatus('Saved in Supabase');}
+      if(mrState.revision===revision){
+        localStorage.removeItem(mrCacheKey(draft.returnId));
+        document.getElementById('return-editor-title').textContent='Material Return '+mrNumber(data.project_sequence)+' · '+(data.project_code||'New draft');
+        document.getElementById('return-project').disabled=Boolean(data.project_sequence);
+        mrStatus('Saved in Supabase');
+      }
       else mrScheduleSave();
     }
     await refreshMaterialReturnsList();
@@ -240,6 +258,7 @@ async function downloadMaterialReturnPDF(){
   if(recordResult.error||itemsResult.error||brandResult.error){mrStatus('Could not load the return for PDF.',true);return;}
   const record=recordResult.data,items=itemsResult.data||[],brand=brandResult.data;
   if(!record.project_id||!items.length){mrStatus('Select a project and at least one material first.',true);return;}
+  if(!record.project_sequence){mrStatus('Save the project first to assign a return number.',true);return;}
   if(!brand.logo_path){mrStatus('An administrator must upload the company logo before generating the PDF.',true);return;}
   const {data:logo,error:logoError}=await sb.storage.from(MR_BUCKET).download(brand.logo_path);
   if(logoError){mrStatus('The stored logo could not be loaded: '+logoError.message,true);return;}
@@ -247,35 +266,70 @@ async function downloadMaterialReturnPDF(){
     const logoData=await mrBlobDataUrl(logo);
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),margin=15;
-    const label=(record.project_code||'PROJECT').replace(/[^A-Za-z0-9_-]/g,'_');
-    const drawPage=()=>{
-      const props=doc.getImageProperties(logoData);
-      const scale=Math.min(42/props.width,18/props.height);
-      doc.addImage(logoData,'PNG',margin,10,props.width*scale,props.height*scale);
-      doc.setFont('helvetica','bold');doc.setTextColor(25,37,51);doc.setFontSize(12);
-      doc.text(doc.splitTextToSize(brand.company_name,115),W-margin,16,{align:'right'});
-      doc.setDrawColor(214,222,230);doc.line(margin,32,W-margin,32);
-      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(95,107,122);
-      doc.text('MATERIAL RETURN',margin,H-9);doc.text(`Page ${doc.internal.getCurrentPageInfo().pageNumber}`,W-margin,H-9,{align:'right'});
+    const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),margin=14;
+    const navy=[24,46,70],teal=[16,119,128],muted=[86,101,117],pale=[240,247,249];
+    const number=mrNumber(record.project_sequence);
+    const generatedBy=currentProfile.full_name?.trim()||currentUser.email||'User';
+    const props=doc.getImageProperties(logoData);
+    const scale=Math.min(126/props.width,54/props.height);
+    const logoWidth=props.width*scale,logoHeight=props.height*scale;
+    const drawHeader=()=>{
+      doc.setFillColor(...navy);doc.rect(0,0,W,3,'F');
+      doc.addImage(logoData,'PNG',margin,8,logoWidth,logoHeight);
+      doc.setFont('helvetica','bold');doc.setTextColor(...navy);doc.setFontSize(10);
+      const companyLines=doc.splitTextToSize(brand.company_name,44).slice(0,4);
+      doc.text(companyLines,W-margin,15,{align:'right'});
+      doc.setFillColor(...navy);doc.roundedRect(margin,66,W-2*margin,11,1.6,1.6,'F');
+      doc.setFontSize(12);doc.setTextColor(255,255,255);
+      doc.text('MATERIAL RETURN',margin+4,73.3);
+      doc.setFontSize(10);doc.text(number,W-margin-4,73.3,{align:'right'});
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...muted);
+      doc.text(`PROJECT CODE  ${record.project_code||'–'}`,margin,84);
+      const projectLines=doc.splitTextToSize(`PROJECT  ${record.project_name||'–'}`,110);
+      doc.text(projectLines.slice(0,2),82,84);
+      doc.text(`DATE  ${record.return_date}`,margin,97);
+      doc.text(`GENERATED BY  ${generatedBy}`,82,97);
+      doc.setDrawColor(210,225,228);doc.line(margin,100,W-margin,100);
     };
-    drawPage();
-    doc.setTextColor(25,37,51);doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('MATERIAL RETURN',margin,43);
-    doc.setFont('helvetica','normal');doc.setFontSize(10);
-    doc.text(`PROJECT CODE: ${record.project_code||'–'}`,margin,52);
-    doc.text(`PROJECT: ${record.project_name||'–'}`,margin,59);
-    doc.text(`DATE: ${record.return_date}`,margin,66);
-    doc.autoTable({startY:72,margin:{left:margin,right:margin,top:38,bottom:18},
-      head:[['#','SKU','MATERIAL DESCRIPTION','QTY','UNIT']],
-      body:items.map((item,index)=>[String(index+1),item.sku_snapshot,item.description_snapshot,String(Number(item.quantity)),item.unit_snapshot]),
-      styles:{fontSize:8,cellPadding:3,overflow:'linebreak'},
-      headStyles:{fillColor:[25,37,51],textColor:255},
-      columnStyles:{0:{cellWidth:9},1:{cellWidth:32},3:{cellWidth:18,halign:'right'},4:{cellWidth:17}},
-      didDrawPage:data=>{if(data.pageNumber>1)drawPage();}
+    doc.autoTable({
+      startY:104,margin:{left:margin,right:margin,top:104,bottom:22},
+      head:[['#','SKU','MATERIAL DESCRIPTION','QTY','UNIT','OK']],
+      body:items.map((item,index)=>[
+        String(index+1),item.sku_snapshot,item.description_snapshot,
+        String(Number(item.quantity)),item.unit_snapshot,''
+      ]),
+      theme:'grid',
+      styles:{font:'helvetica',fontSize:8,cellPadding:2.2,overflow:'linebreak',lineColor:[216,226,233],lineWidth:0.12,textColor:navy,valign:'middle'},
+      headStyles:{fillColor:navy,textColor:[255,255,255],fontStyle:'bold',lineColor:navy},
+      alternateRowStyles:{fillColor:pale},
+      columnStyles:{0:{cellWidth:9},1:{cellWidth:28},3:{cellWidth:17,halign:'right'},4:{cellWidth:16},5:{cellWidth:13,halign:'center'}},
+      didDrawCell:data=>{
+        if(data.section==='body'&&data.column.index===5){
+          doc.setDrawColor(...teal);doc.setLineWidth(0.45);
+          doc.rect(data.cell.x+data.cell.width/2-2.4,data.cell.y+data.cell.height/2-2.4,4.8,4.8);
+        }
+      },
+      didDrawPage:drawHeader
     });
-    const end=doc.lastAutoTable.finalY;
-    if(end+18<H-18){doc.setFontSize(9);doc.setTextColor(95,107,122);doc.text('Returned by: ____________________',margin,end+13);doc.text('Received by: ____________________',W-margin,end+13,{align:'right'});}
-    doc.save(`MATERIAL RETURN - ${label} - ${record.return_date}.pdf`);
+    let y=doc.lastAutoTable.finalY+8;
+    if(y+53>H-17){doc.addPage();drawHeader();y=111;}
+    doc.setFillColor(...pale);doc.roundedRect(margin,y,W-2*margin,8,1.5,1.5,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...teal);
+    doc.text('OBSERVATIONS',margin+3,y+5.5);
+    doc.setDrawColor(184,202,214);doc.setLineWidth(0.25);
+    for(let line=1;line<=3;line++)doc.line(margin+2,y+8+line*8,W-margin-2,y+8+line*8);
+    doc.setTextColor(...navy);doc.setFontSize(8);doc.setFont('helvetica','normal');
+    doc.text('Returned by: ______________________________',margin,y+46);
+    doc.text('Received by: ______________________________',W-margin,y+46,{align:'right'});
+    const total=doc.internal.getNumberOfPages();
+    for(let page=1;page<=total;page++){
+      doc.setPage(page);doc.setDrawColor(215,225,231);doc.line(margin,H-14,W-margin,H-14);
+      doc.setTextColor(...muted);doc.setFontSize(8);
+      doc.text(`${record.project_code||'PROJECT'} · MATERIAL RETURN ${number}`,margin,H-9);
+      doc.text(`Page ${page} / ${total}`,W-margin,H-9,{align:'right'});
+    }
+    const fileName=`${mrFilePart(record.project_code)} - ${mrFilePart(record.project_name)} - MATERIAL RETURN - ${number}.pdf`;
+    doc.save(fileName);
     mrStatus('PDF generated');
   }catch(e){console.error(e);mrStatus('Could not generate PDF: '+(e.message||e),true);}
 }

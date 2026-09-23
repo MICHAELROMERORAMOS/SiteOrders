@@ -5,10 +5,10 @@ const vm=require('vm');
 const assert=require('assert');
 
 const imagePreview=fs.readFileSync('js/image-preview.js','utf8');
-const ui=fs.readFileSync('js/ui.js','utf8');
+const page=fs.readFileSync('index.html','utf8');
 const workflow=fs.readFileSync('js/workflow-v2.js','utf8');
 
-assert(ui.includes('image-preview.js'), 'ui.js must load the safe image preview handler');
+assert(page.includes('<script src="./js/image-preview.js?v=1"></script>'), 'the page must load the safe image preview handler');
 assert(imagePreview.includes('button.dataset.imageUrl=imageUrl'), 'image URL must be stored through dataset, not executable HTML');
 assert(imagePreview.includes('button.dataset.imageName=materialName'), 'material name must be stored through dataset');
 assert(imagePreview.includes("button.addEventListener('click'"), 'image preview must use an event listener');

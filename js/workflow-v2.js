@@ -373,10 +373,21 @@ async function viewOrder(order){
   if(canEditWorkflowOrder(order,hasDispatch))footer+=`<button class="btn btn-secondary" onclick='startEditWorkflowOrder(${JSON.stringify(order).replace(/'/g,"&#39;")})'>Edit</button>`;
   if(canDispatchOrder(order))footer+=`<button class="btn btn-primary" onclick="openDispatchDialog(${order.id})">Dispatch</button>`;
   if(canConfirmReceipt(order)&&pendingDispatch)footer+=`<button class="btn btn-success" onclick="openReceiptDialog(${pendingDispatch.id})">Confirm Receipt</button>`;
+  if(isAdminRole()||(isSupervisorRole()&&workflowProjectAllowed(order.project_id)))footer+=`<button class="btn btn-danger" onclick="deleteMaterialRequest(${order.id})">Delete request</button>`;
   footer+=`<button class="btn btn-secondary btn-sm" onclick="downloadOrderExcel()">⬇ Excel</button><button class="btn btn-secondary btn-sm" onclick="downloadOrderPDF()">⬇ PDF</button><button class="btn btn-ghost" onclick="closeModal('modal-order-detail')">Close</button>`;
   document.getElementById('order-detail-footer').innerHTML=footer;
   workflowDialogContext={order,items,dispatches,alternatives};
   openModal('modal-order-detail');
+}
+
+async function deleteMaterialRequest(orderId){
+  if(!isAdminRole()&&!(isSupervisorRole()&&workflowProjectAllowed(workflowDialogContext?.order?.project_id)))return;
+  const label=workflowDialogContext?.order?.order_number||`#${orderId}`;
+  if(!confirm(`Delete Material Request ${label} and its associated records? This cannot be undone.`))return;
+  const {data,error}=await sb.from('pedidos').delete().eq('id',orderId).select('id');
+  if(error||!data?.length){alert(error?.message||'The request could not be deleted.');return;}
+  closeModal('modal-order-detail');
+  await refreshWorkflowOrders();
 }
 
 async function approveWorkflowOrder(orderId){

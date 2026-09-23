@@ -52,9 +52,9 @@ La aplicación conserva la URL y la clave pública `anon` que estaban en el arch
 
 ### Devoluciones de materiales
 
-La migración `database/material-returns.sql` ya se aplicó al proyecto **MATERIAL REQUEST**. Para otra instancia de Supabase, ejecútala antes de usar esta página. El menú **Material Returns** está disponible para administrador, supervisor y trabajador (`encargado`). Se pueden guardar listas con proyecto, fecha, SKU (`materiales.id_material`), descripción, cantidad y unidad; los cambios se guardan en Supabase y se respaldan localmente mientras se sincronizan. Los trabajadores acceden a sus propias listas; administradores y supervisores acceden a todas.
+Las migraciones `database/material-returns.sql`, `database/material-returns-project-sequence.sql` y `database/material-returns-counter-hardening.sql` ya se aplicaron al proyecto **MATERIAL REQUEST**. Para otra instancia de Supabase, ejecútalas en ese orden. El menú **Material Returns** está disponible para administrador, supervisor y trabajador (`encargado`). Se pueden guardar listas con proyecto, fecha, SKU (`materiales.id_material`), descripción, cantidad y unidad; los cambios se guardan en Supabase y se respaldan localmente mientras se sincronizan. Los trabajadores acceden a sus propias listas; administradores y supervisores acceden a todas. El número se asigna al guardar por primera vez un proyecto: cada proyecto comienza en 001 y los números eliminados no se reutilizan.
 
-Solamente administrador y supervisor pueden generar el PDF. Un administrador debe configurar primero el nombre de la empresa y subir el logo desde **Return Branding**. La imagen PNG se conserva en la ruta fija `company-logo.png` de un bucket privado; el PDF la obtiene de allí. El logo todavía no está cargado: súbelo desde esa pantalla antes de generar el primer PDF.
+Los tres roles pueden generar el PDF, que incluye el número, quien lo generó y una casilla de recepción por línea. Un administrador debe configurar primero el nombre de la empresa y subir el logo desde **Return Branding**. La imagen PNG se conserva en la ruta fija `company-logo.png` de un bucket privado; el PDF la obtiene de allí. Solo administradores y supervisores pueden eliminar Material Requests; los supervisores se limitan a sus proyectos.
 
 ## Excel
 

@@ -224,9 +224,11 @@
               <h3 class="return-section-title">Materials to return</h3>
               <div id="return-items"></div>
               <div class="return-actions">
-                <button class="btn btn-secondary btn-sm" onclick="deleteMaterialReturn()">Delete return</button>
+                <span class="return-helper" id="return-workflow-note" style="margin:0"></span>
                 <div class="return-actions-right">
-                  <button class="btn btn-secondary btn-sm" onclick="saveMaterialReturnNow()">Save return</button>
+                  <button class="btn btn-secondary btn-sm" id="return-save-action" onclick="saveMaterialReturnNow()">Save return</button>
+                  <button class="btn btn-primary btn-sm" id="return-submit-action" onclick="submitMaterialReturn()">Send for review</button>
+                  <button class="btn btn-secondary btn-sm" id="return-reopen-action" onclick="reopenMaterialReturn()" style="display:none">Allow editing</button>
                   <button class="btn btn-primary btn-sm return-pdf-action" onclick="downloadMaterialReturnPDF()" style="display:none">Generate PDF</button>
                 </div>
               </div>

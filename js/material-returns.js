@@ -9,6 +9,7 @@ const MR_LOGO='company-logo.png';
 function mrCanEdit(){return Boolean(currentUser&&currentProfile?.status==='activo'&&['admin','supervisor','encargado'].includes(currentProfile.role));}
 function mrCanPdf(){return mrCanEdit();}
 function mrIsAdmin(){return currentProfile?.status==='activo'&&currentProfile.role==='admin';}
+function mrIsDraft(){return mrState.current?.status==='draft';}
 function mrEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function mrToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function mrNumber(sequence){return sequence?String(sequence).padStart(3,'0'):'Draft';}
@@ -17,14 +18,24 @@ function mrCacheKey(id){return `siteorders:material-return:${currentUser?.id}:${
 function mrActiveKey(){return `siteorders:active-material-return:${currentUser?.id}`;}
 function mrStatus(message,error=false){const el=document.getElementById('return-save-status');if(el){el.textContent=message;el.style.color=error?'var(--red)':'var(--text2)';}}
 function mrDraft(){return {returnId:mrState.current?.id,projectId:document.getElementById('return-project').value||null,returnDate:document.getElementById('return-date').value,items:mrState.items.map(i=>({...i}))};}
-function mrRemember(){if(!mrState.current)return;mrState.revision++;try{localStorage.setItem(mrCacheKey(mrState.current.id),JSON.stringify({version:1,...mrDraft()}));}catch(e){console.warn('Material Return local backup unavailable',e);}}
+function mrRemember(){if(!mrIsDraft())return;mrState.revision++;try{localStorage.setItem(mrCacheKey(mrState.current.id),JSON.stringify({version:1,...mrDraft()}));}catch(e){console.warn('Material Return local backup unavailable',e);}}
+
+function mrUpdateActions(){
+  const submitted=mrState.current?.status==='submitted';
+  document.getElementById('return-save-action').style.display=submitted?'none':'';
+  document.getElementById('return-submit-action').style.display=submitted?'none':'';
+  document.getElementById('return-reopen-action').style.display=submitted&&mrIsAdmin()?'':'none';
+  document.querySelectorAll('.return-pdf-action').forEach(b=>b.style.display=submitted&&mrCanPdf()?'':'none');
+  document.getElementById('return-workflow-note').textContent=submitted
+    ?'Sent for review · Editing is locked until an administrator allows it.'
+    :'Draft · A number is assigned when you send it for review.';
+}
 
 async function loadMaterialReturnsPage(){
   if(!mrCanEdit()){
     document.getElementById('returns-list').textContent='Your account does not have access to Material Returns.';
     return;
   }
-  document.querySelectorAll('.return-pdf-action').forEach(b=>b.style.display=mrCanPdf()?'':'none');
   if(!await refreshMaterialReturnsList())return;
   if(mrState.current){renderMaterialReturnEditor();return;}
   let savedId;
@@ -35,7 +46,7 @@ async function loadMaterialReturnsPage(){
 
 async function refreshMaterialReturnsList(){
   const {data,error}=await sb.from('material_returns')
-    .select('id,project_code,project_name,project_sequence,return_date,updated_at,created_by,material_return_items(id)')
+    .select('id,project_code,project_name,project_sequence,status,return_date,updated_at,created_by,material_return_items(id)')
     .order('updated_at',{ascending:false}).limit(100);
   if(error){
     document.getElementById('returns-list').textContent='Could not load Material Returns: '+error.message;
@@ -47,7 +58,7 @@ async function refreshMaterialReturnsList(){
   container.innerHTML=mrState.list.length?mrState.list.map(r=>`
     <button type="button" class="return-list-entry ${mrState.current?.id===r.id?'active':''}" onclick="openMaterialReturn('${r.id}')">
       <strong>${mrEscape(mrNumber(r.project_sequence))} · ${mrEscape([r.project_code,r.project_name].filter(Boolean).join(' · ')||'Project pending')}</strong>
-      <small>${mrEscape(r.return_date)} · ${r.material_return_items?.length||0} items</small>
+      <small>${mrEscape(r.return_date)} · ${r.material_return_items?.length||0} items · ${r.status==='submitted'?'Sent for review':'Draft'}</small>
     </button>`).join(''):'<p class="return-helper">No returns yet. Create one to start a list.</p>';
   return true;
 }
@@ -78,8 +89,9 @@ async function openMaterialReturn(id){
   localStorage.setItem(mrActiveKey(),id);
   renderMaterialReturnEditor();
   try{
+    if(record.status==='submitted')localStorage.removeItem(mrCacheKey(id));
     const backup=JSON.parse(localStorage.getItem(mrCacheKey(id))||'null');
-    if(backup?.version===1&&backup.returnId===id&&Array.isArray(backup.items)){
+    if(record.status==='draft'&&backup?.version===1&&backup.returnId===id&&Array.isArray(backup.items)){
       document.getElementById('return-project').value=backup.projectId||'';
       document.getElementById('return-date').value=backup.returnDate||record.return_date;
       mrState.items=backup.items;
@@ -92,21 +104,29 @@ async function openMaterialReturn(id){
 
 function renderMaterialReturnEditor(){
   if(!mrState.current)return;
+  const submitted=mrState.current.status==='submitted';
   document.getElementById('return-editor').style.display='block';
   document.getElementById('return-editor-title').textContent='Material Return '+mrNumber(mrState.current.project_sequence)+' · '+(mrState.current.project_code||'New draft');
   const select=document.getElementById('return-project');
   select.innerHTML='<option value="">Select project...</option>';
   allProjects.forEach(p=>select.add(new Option(`${p.codigo?'['+p.codigo+'] ':''}${p.nombre}`,p.id)));
   select.value=mrState.current.project_id||'';
-  select.disabled=Boolean(mrState.current.project_sequence);
-  select.title=select.disabled?'The project and return number are fixed. Create a new return for another project.':'';
+  select.disabled=submitted||Boolean(mrState.current.project_sequence);
+  select.title=select.disabled?'The project is fixed after its return number is assigned.':'';
   document.getElementById('return-date').value=mrState.current.return_date||mrToday();
+  document.getElementById('return-date').disabled=submitted;
   document.getElementById('return-material-search').value='';
-  renderReturnMaterialMatches();renderReturnItems();mrStatus('Saved in Supabase');
+  document.getElementById('return-material-search').disabled=submitted;
+  renderReturnMaterialMatches();renderReturnItems();mrUpdateActions();
+  mrStatus(submitted?'Sent for review · Locked':'Saved in Supabase');
 }
 
 function renderReturnMaterialMatches(){
   const container=document.getElementById('return-material-matches');
+  if(!mrIsDraft()){
+    container.textContent='Materials cannot be changed while this return is under review.';
+    return;
+  }
   const term=document.getElementById('return-material-search').value.trim().toLowerCase();
   if(!term){container.innerHTML='<span class="return-helper">Search the catalogue to add a line.</span>';return;}
   const found=allMaterials.filter(m=>[m.id_material,m.nombre,m.descripcion,m.sku_alternativos].some(v=>String(v||'').toLowerCase().includes(term))).slice(0,24);
@@ -120,14 +140,14 @@ function renderReturnItems(){
     const material=allMaterials.find(m=>m.id===item.material_id);
     return `<tr><td>${mrEscape(material?.id_material||item.sku_snapshot||'–')}</td>
       <td class="return-description">${mrEscape(material?.descripcion||item.description_snapshot||material?.nombre||'–')}</td>
-      <td><input class="form-input return-quantity" type="number" min="0.001" max="999999999" step="0.001" value="${Number(item.quantity)||''}" oninput="returnQuantityChanged(${index},this.value)" aria-label="Quantity for ${mrEscape(material?.id_material||item.sku_snapshot||'material')}"></td>
+      <td><input class="form-input return-quantity" type="number" min="0.001" max="999999999" step="0.001" value="${Number(item.quantity)||''}" ${mrIsDraft()?'':'disabled'} oninput="returnQuantityChanged(${index},this.value)" aria-label="Quantity for ${mrEscape(material?.id_material||item.sku_snapshot||'material')}"></td>
       <td>${mrEscape(material?.unidad_medida||item.unit_snapshot||'pcs')}</td>
-      <td><button type="button" class="btn btn-danger btn-xs" onclick="removeReturnMaterial(${index})" aria-label="Remove material">×</button></td></tr>`;
+      <td>${mrIsDraft()?`<button type="button" class="btn btn-danger btn-xs" onclick="removeReturnMaterial(${index})" aria-label="Remove material">×</button>`:''}</td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 
 function addReturnMaterial(id){
-  if(!mrState.current)return;
+  if(!mrIsDraft())return;
   const material=allMaterials.find(m=>m.id===id);if(!material)return;
   const existing=mrState.items.find(i=>i.material_id===id);
   if(existing)existing.quantity=Number(existing.quantity)+1;
@@ -137,13 +157,18 @@ function addReturnMaterial(id){
 }
 
 function returnQuantityChanged(index,value){
-  if(!mrState.items[index])return;
+  if(!mrIsDraft()||!mrState.items[index])return;
   mrState.items[index].quantity=value===''?0:Number(value);
   returnDraftChanged();
 }
-function removeReturnMaterial(index){mrState.items.splice(index,1);renderReturnItems();returnDraftChanged();}
+function removeReturnMaterial(index){
+  if(!mrIsDraft()||!mrState.items[index])return;
+  const name=mrState.items[index].description_snapshot||mrState.items[index].sku_snapshot||'this material';
+  if(!confirm(`Remove ${name} from Materials to return?`))return;
+  mrState.items.splice(index,1);renderReturnItems();returnDraftChanged();
+}
 function returnDraftChanged(){
-  if(!mrState.current)return;
+  if(!mrIsDraft())return;
   mrRemember();mrStatus('Unsaved changes');mrScheduleSave();
 }
 function mrScheduleSave(){clearTimeout(mrState.timer);mrState.timer=setTimeout(()=>{saveMaterialReturnNow();},550);}
@@ -151,6 +176,7 @@ function mrScheduleSave(){clearTimeout(mrState.timer);mrState.timer=setTimeout((
 async function saveMaterialReturnNow(){
   clearTimeout(mrState.timer);
   if(!mrState.current)return true;
+  if(!mrIsDraft())return true;
   const draft=mrDraft();
   if(!draft.returnDate||mrState.items.some(i=>!Number.isFinite(Number(i.quantity))||Number(i.quantity)<=0)){
     mrStatus('Enter a date and positive quantities before saving.',true);return false;
@@ -170,6 +196,7 @@ async function saveMaterialReturnNow(){
         localStorage.removeItem(mrCacheKey(draft.returnId));
         document.getElementById('return-editor-title').textContent='Material Return '+mrNumber(data.project_sequence)+' · '+(data.project_code||'New draft');
         document.getElementById('return-project').disabled=Boolean(data.project_sequence);
+        mrUpdateActions();
         mrStatus('Saved in Supabase');
       }
       else mrScheduleSave();
@@ -181,15 +208,29 @@ async function saveMaterialReturnNow(){
   return mrState.saving;
 }
 
-async function deleteMaterialReturn(){
-  if(!mrState.current||!confirm('Delete this Material Return and all its lines?'))return;
-  clearTimeout(mrState.timer);await mrState.saving;
-  const id=mrState.current.id;
-  const {error}=await sb.from('material_returns').delete().eq('id',id);
-  if(error){mrStatus(error.message,true);return;}
-  localStorage.removeItem(mrCacheKey(id));localStorage.removeItem(mrActiveKey());
-  mrState.current=null;mrState.items=[];
-  document.getElementById('return-editor').style.display='none';
+async function submitMaterialReturn(){
+  if(!mrIsDraft())return;
+  if(!confirm('Send this Material Return for review? It will be locked until an administrator allows editing again.'))return;
+  if(!await saveMaterialReturnNow())return;
+  if(!mrState.current.project_id||!mrState.items.length){
+    mrStatus('Select a project and add at least one material before sending.',true);return;
+  }
+  const {data,error}=await sb.rpc('submit_material_return',{p_return_id:mrState.current.id});
+  if(error){mrStatus('Could not send for review: '+error.message,true);return;}
+  mrState.current=data;
+  clearTimeout(mrState.timer);
+  localStorage.removeItem(mrCacheKey(data.id));
+  renderMaterialReturnEditor();
+  await refreshMaterialReturnsList();
+}
+
+async function reopenMaterialReturn(){
+  if(!mrIsAdmin()||mrState.current?.status!=='submitted')return;
+  if(!confirm('Allow editing this Material Return again? Its number will stay the same.'))return;
+  const {data,error}=await sb.rpc('reopen_material_return',{p_return_id:mrState.current.id});
+  if(error){mrStatus('Could not allow editing: '+error.message,true);return;}
+  mrState.current=data;
+  renderMaterialReturnEditor();
   await refreshMaterialReturnsList();
 }
 
@@ -257,6 +298,7 @@ async function downloadMaterialReturnPDF(){
   ]);
   if(recordResult.error||itemsResult.error||brandResult.error){mrStatus('Could not load the return for PDF.',true);return;}
   const record=recordResult.data,items=itemsResult.data||[],brand=brandResult.data;
+  if(record.status!=='submitted'){mrStatus('Send the return for review before generating the PDF.',true);return;}
   if(!record.project_id||!items.length){mrStatus('Select a project and at least one material first.',true);return;}
   if(!record.project_sequence){mrStatus('Save the project first to assign a return number.',true);return;}
   if(!brand.logo_path){mrStatus('An administrator must upload the company logo before generating the PDF.',true);return;}

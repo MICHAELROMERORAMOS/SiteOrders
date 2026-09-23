@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-<link rel="stylesheet" href="./css/styles.css?v=3">
+<link rel="stylesheet" href="./css/styles.css?v=4">
 </head>
 <body>
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -265,6 +265,42 @@
                   <button class="btn btn-primary btn-sm return-pdf-action" onclick="downloadMaterialReturnPDF()" style="display:none">Generate PDF</button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-return-material-quantity">
+          <div class="modal return-quantity-modal">
+            <div class="modal-header">
+              <span class="modal-title">Material quantity</span>
+              <button class="modal-close" onclick="closeReturnMaterialQuantity()" aria-label="Close quantity window">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="return-quantity-material">
+                <div class="return-quantity-material-name" id="return-qty-material-name">Material</div>
+                <div class="return-quantity-material-meta">
+                  <span id="return-qty-material-code">–</span>
+                  <span>·</span>
+                  <span id="return-qty-material-unit">unit</span>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" for="return-material-qty-input">Quantity</label>
+                <input
+                  class="form-input return-quantity-modal-input"
+                  id="return-material-qty-input"
+                  type="number"
+                  min="0.001"
+                  max="999999999"
+                  step="0.001"
+                  inputmode="decimal"
+                  placeholder="Enter quantity"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();confirmReturnMaterialQuantity()}">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeReturnMaterialQuantity()">Cancel</button>
+              <button class="btn btn-primary" id="return-qty-confirm" onclick="confirmReturnMaterialQuantity()">Add material</button>
             </div>
           </div>
         </div>
@@ -572,6 +608,6 @@
 <script src="./js/order-item-preview.js?v=1"></script>
 <script src="./js/app-stability.js?v=1"></script>
 <script src="./js/loading-state-fix.js?v=1"></script>
-<script src="./js/material-returns.js?v=4"></script>
+<script src="./js/material-returns.js?v=5"></script>
 </body>
 </html>

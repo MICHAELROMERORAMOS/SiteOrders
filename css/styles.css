@@ -566,3 +566,29 @@ tr:hover td {
   background: rgba(231,102,30,0.18);
 }
 
+/* Material Return drafts */
+.return-layout { display:grid; grid-template-columns:minmax(230px,300px) minmax(0,1fr); align-items:start; gap:16px; }
+.return-list { max-height:72vh; overflow:auto; }
+.return-list-entry { display:block; width:100%; text-align:left; padding:12px 10px; border:0; border-bottom:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; }
+.return-list-entry:hover,.return-list-entry.active { background:var(--accent-bg); border-radius:7px; }
+.return-list-entry strong { display:block; font-size:13px; }
+.return-list-entry small,.return-helper { color:var(--text2); font-size:12px; }
+.return-helper { margin:-2px 0 16px; }
+.return-save-status { font-size:11px; color:var(--text2); margin-left:8px; }
+.return-material-matches { max-height:190px; overflow:auto; margin:-9px 0 14px; }
+.return-match { width:100%; display:flex; justify-content:space-between; gap:12px; text-align:left; padding:9px; background:var(--bg3); border:1px solid var(--border); border-radius:7px; color:var(--text); cursor:pointer; margin-bottom:5px; }
+.return-match:hover { border-color:var(--accent); }
+.return-match small { color:var(--text2); white-space:nowrap; }
+.return-section-title { font-size:13px; margin:17px 0 10px; }
+.return-table-wrap { overflow-x:auto; }
+.return-table { width:100%; border-collapse:collapse; font-size:12px; }
+.return-table th,.return-table td { padding:9px 7px; border-bottom:1px solid var(--border); text-align:left; vertical-align:middle; }
+.return-table th { color:var(--text2); background:var(--bg3); font-weight:600; }
+.return-table .return-description { min-width:180px; overflow-wrap:anywhere; }
+.return-table .return-quantity { width:95px; min-width:85px; }
+.return-actions { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-top:18px; }
+.return-actions-right { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.return-logo-preview { margin-top:12px; padding:12px; border:1px dashed var(--border2); border-radius:8px; min-height:70px; color:var(--text2); }
+.return-logo-preview img { display:block; max-width:220px; max-height:90px; object-fit:contain; }
+@media (max-width: 960px) { .return-layout { grid-template-columns:1fr; } .return-list { max-height:170px; } }
+@media (max-width: 600px) { .return-actions { align-items:stretch; flex-direction:column; } .return-actions-right,.return-actions .btn { width:100%; } .return-table { min-width:580px; } }

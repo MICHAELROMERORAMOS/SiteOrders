@@ -64,6 +64,7 @@
         <button class="nav-item active" onclick="navigateTo('dashboard')" id="nav-dashboard"><span class="nav-icon">📊</span> Dashboard</button>
         <button class="nav-item" onclick="navigateTo('pedidos')" id="nav-pedidos"><span class="nav-icon">📦</span> My Orders</button>
         <button class="nav-item" onclick="navigateTo('nuevo-pedido')" id="nav-nuevo-pedido"><span class="nav-icon">➕</span> New Order</button>
+        <button class="nav-item" onclick="navigateTo('material-returns')" id="nav-material-returns"><span class="nav-icon">↩️</span> Material Returns</button>
         <button class="nav-item" onclick="navigateTo('materiales')" id="nav-materiales"><span class="nav-icon">🧱</span> Catalog</button>
         <div class="nav-section admin-only" style="display:none">Administration</div>
         <button class="nav-item admin-only" onclick="navigateTo('admin-pedidos')" id="nav-admin-pedidos" style="display:none"><span class="nav-icon">📋</span> All Orders</button>
@@ -71,6 +72,7 @@
         <button class="nav-item admin-only" onclick="navigateTo('admin-usuarios')" id="nav-admin-usuarios" style="display:none"><span class="nav-icon">👥</span> Users <span class="nav-badge" id="pending-badge" style="display:none">0</span></button>
         <button class="nav-item admin-only" onclick="navigateTo('admin-proyectos')" id="nav-admin-proyectos" style="display:none"><span class="nav-icon">🏢</span> Sites</button>
         <button class="nav-item admin-only" onclick="navigateTo('admin-settings')" id="nav-admin-settings" style="display:none"><span class="nav-icon">🔧</span> Settings</button>
+        <button class="nav-item admin-only" onclick="navigateTo('return-branding')" id="nav-return-branding" style="display:none"><span class="nav-icon">🖼️</span> Return Branding</button>
       </nav>
       <div class="sidebar-user">
         <div class="user-avatar" id="user-avatar-sidebar">?</div>
@@ -205,6 +207,44 @@
 </div>
 
         <!-- CATALOG -->
+        <div class="page" id="page-material-returns">
+          <div class="return-layout">
+            <div class="card">
+              <div class="card-header"><div class="card-title">Material Returns</div><button class="btn btn-primary btn-sm" onclick="newMaterialReturn()">+ New return</button></div>
+              <div id="returns-list" class="return-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+            </div>
+            <div class="card" id="return-editor" style="display:none">
+              <div class="card-header"><div class="card-title" id="return-editor-title">Return draft</div><span id="return-save-status" class="return-save-status"></span></div>
+              <div class="two-col">
+                <div class="form-group"><label class="form-label">Project code and name</label><select class="form-input" id="return-project" onchange="returnDraftChanged()"><option value="">Select project...</option></select></div>
+                <div class="form-group"><label class="form-label">Return date</label><input type="date" class="form-input" id="return-date" onchange="returnDraftChanged()" oninput="returnDraftChanged()"></div>
+              </div>
+              <div class="form-group"><label class="form-label">Find a material, tool or equipment by SKU or description</label><input class="form-input" id="return-material-search" type="search" placeholder="Type an SKU or product name..." oninput="renderReturnMaterialMatches()"></div>
+              <div id="return-material-matches" class="return-material-matches"></div>
+              <h3 class="return-section-title">Materials to return</h3>
+              <div id="return-items"></div>
+              <div class="return-actions">
+                <button class="btn btn-secondary btn-sm" onclick="deleteMaterialReturn()">Delete return</button>
+                <div class="return-actions-right">
+                  <button class="btn btn-secondary btn-sm" onclick="saveMaterialReturnNow()">Save changes</button>
+                  <button class="btn btn-primary btn-sm return-pdf-action" onclick="downloadMaterialReturnPDF()" style="display:none">Generate PDF</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-return-branding">
+          <div class="card" style="max-width:700px">
+            <div class="card-header"><div class="card-title">Material Return · Company Branding</div></div>
+            <p class="return-helper">The company name and stored logo are used on every Material Return PDF. Only administrators can change them.</p>
+            <div class="form-group"><label class="form-label">Company name</label><input class="form-input" id="return-company-name" type="text" maxlength="120" placeholder="Company name"></div>
+            <div class="form-group"><label class="form-label">Company logo (PNG or JPEG, up to 2 MB)</label><input class="form-input" id="return-logo-file" type="file" accept="image/png,image/jpeg"><div id="return-logo-preview" class="return-logo-preview">No logo uploaded yet.</div></div>
+            <button class="btn btn-primary" onclick="saveReturnBranding()">Save company branding</button>
+            <div id="return-branding-status" class="return-save-status"></div>
+          </div>
+        </div>
+
         <div class="page" id="page-materiales">
           <div class="filter-bar">
             <input type="text" class="search-input" id="search-cat" placeholder="Search materials..." oninput="filterCatalog()">
@@ -488,6 +528,8 @@
 <script src="./js/users.js"></script>
 <script src="./js/projects-admin.js"></script>
 <script src="./js/documents.js"></script>
+<script src="./js/workflow-legacy-bridge.js"></script>
 <script src="./js/ui.js"></script>
+<script src="./js/material-returns.js"></script>
 </body>
 </html>

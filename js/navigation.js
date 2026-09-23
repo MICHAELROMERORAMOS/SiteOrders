@@ -5,6 +5,8 @@ const pageMeta={
   'dashboard':['Dashboard','Overview'],
   'pedidos':['My Orders','Order history'],
   'nuevo-pedido':['New Order','Submit a material request'],
+  'material-returns':['Material Returns','Save and edit return lists'],
+  'return-branding':['Return Branding','Company logo for return PDFs'],
   'materiales':['Material Catalog','Browse available materials'],
   'admin-pedidos':['All Orders','Manage all requests'],
   'admin-materiales':['Inventory','Manage materials & stock'],

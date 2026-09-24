@@ -206,7 +206,7 @@ async function saveMaterialReturnSequence(projectId){
     input?.focus();return;
   }
   if(next<=Number(row?.last_issued||0)){
-    setDocumentSequenceStatus(`Next number must be greater than the last issued number (${formatSequenceNumber(row?.last_issued,materialRequestSequencePadding())}).`,true);
+    setDocumentSequenceStatus(`Next number must be greater than the last issued number (${formatSequenceNumber(row?.last_issued)}).`,true);
     input?.focus();return;
   }
   const project=[row?.project_code,row?.project_name].filter(Boolean).join(' - ');
@@ -228,7 +228,7 @@ async function saveMaterialRequestSequence(projectId,userId){
     input?.focus();return;
   }
   if(next<=Number(row?.last_issued||0)){
-    setDocumentSequenceStatus(`Next number must be greater than the last issued number (${formatSequenceNumber(row?.last_issued)}).`,true);
+    setDocumentSequenceStatus(`Next number must be greater than the last issued number (${formatSequenceNumber(row?.last_issued,materialRequestSequencePadding())}).`,true);
     input?.focus();return;
   }
   const project=[row?.project_code,row?.project_name].filter(Boolean).join(' - ');

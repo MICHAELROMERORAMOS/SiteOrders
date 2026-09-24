@@ -95,9 +95,13 @@ function settingsEscape(value){
     .replaceAll("'","&#39;");
 }
 
-function formatSequenceNumber(value){
+function formatSequenceNumber(value,padding=3){
   const n=Math.max(0,Number(value)||0);
-  return String(n).padStart(3,'0');
+  return String(n).padStart(Math.max(1,Number(padding)||1),'0');
+}
+
+function materialRequestSequencePadding(){
+  return Math.max(1,Number(documentSequenceSettings?.material_request_padding)||2);
 }
 
 function setDocumentSequenceStatus(message,error=false){
@@ -183,7 +187,7 @@ function renderMaterialRequestSequenceSettings(rows){
               <tr>
                 <td>${settingsEscape(row.requester_name||'User')}</td>
                 <td><span class="sequence-initials">${settingsEscape(row.requester_initials||'')}</span></td>
-                <td><span class="sequence-number-readonly">${formatSequenceNumber(row.last_issued)}</span></td>
+                <td><span class="sequence-number-readonly">${formatSequenceNumber(row.last_issued,materialRequestSequencePadding())}</span></td>
                 <td><input class="form-input sequence-next-input" id="request-seq-${row.project_id}-${row.user_id}" type="number" min="1" step="1" value="${Number(row.next_number)||1}" inputmode="numeric"></td>
                 <td><button class="btn btn-secondary btn-sm" onclick="saveMaterialRequestSequence(${row.project_id},'${row.user_id}')">Save</button></td>
               </tr>`).join('')}
@@ -202,7 +206,7 @@ async function saveMaterialReturnSequence(projectId){
     input?.focus();return;
   }
   if(next<=Number(row?.last_issued||0)){
-    setDocumentSequenceStatus(`Next number must be greater than the last issued number (${formatSequenceNumber(row?.last_issued)}).`,true);
+    setDocumentSequenceStatus(`Next number must be greater than the last issued number (${formatSequenceNumber(row?.last_issued,materialRequestSequencePadding())}).`,true);
     input?.focus();return;
   }
   const project=[row?.project_code,row?.project_name].filter(Boolean).join(' - ');
@@ -229,11 +233,11 @@ async function saveMaterialRequestSequence(projectId,userId){
   }
   const project=[row?.project_code,row?.project_name].filter(Boolean).join(' - ');
   const requester=`${row?.requester_name||'Requester'} [${row?.requester_initials||''}]`;
-  if(!confirm(`Set the next Material Request for ${project} / ${requester} to ${formatSequenceNumber(next)}?`))return;
+  if(!confirm(`Set the next Material Request for ${project} / ${requester} to ${formatSequenceNumber(next,materialRequestSequencePadding())}?`))return;
 
   setDocumentSequenceStatus('Saving Material Request sequence...');
   const {error}=await sb.rpc('admin_set_material_request_next',{p_project_id:Number(projectId),p_user_id:userId,p_next_number:next});
   if(error){setDocumentSequenceStatus(error.message,true);return;}
-  setDocumentSequenceStatus(`Next Material Request for ${project} / ${requester} is now ${formatSequenceNumber(next)}.`);
+  setDocumentSequenceStatus(`Next Material Request for ${project} / ${requester} is now ${formatSequenceNumber(next,materialRequestSequencePadding())}.`);
   await loadDocumentSequenceSettings();
 }

@@ -20,6 +20,7 @@
 - `js/material-returns.js`: devoluciones de materiales, borradores y PDF.
 - `database/material-returns.sql`: tablas, permisos y almacenamiento privado para devoluciones.
 - `database/document-sequence-settings.sql`: RPCs administrativos para consultar y definir el próximo consecutivo de Material Requests y Material Returns.
+- `database/company-branding-shared-documents.sql`: permite reutilizar de forma segura el branding corporativo en los PDFs de Material Request y Material Return.
 - `assets/templates/material-request-template.xlsx`: plantilla Excel original.
 
 ## Cómo ejecutarla

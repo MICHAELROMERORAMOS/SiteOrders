@@ -680,3 +680,40 @@ tr:hover td {
   font-weight: 700;
   padding: 12px 14px;
 }
+
+
+/* Document sequence settings */
+.document-sequences-card { margin-top:16px; }
+.sequence-card-header { align-items:flex-start; gap:14px; }
+.sequence-card-subtitle { margin:4px 0 0; color:var(--text2); font-size:12px; line-height:1.45; }
+.sequence-status { display:block; min-height:18px; margin:2px 0 4px; }
+.document-sequence-section { margin-top:18px; padding-top:18px; border-top:1px solid var(--border); }
+.document-sequence-section:first-of-type { margin-top:12px; }
+.sequence-section-title { font-size:13px; font-weight:800; color:var(--text); }
+.sequence-section-help { margin:4px 0 10px; font-size:11px; color:var(--text2); line-height:1.45; }
+.sequence-table-wrap { width:100%; overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); }
+.sequence-table { width:100%; border-collapse:collapse; min-width:590px; }
+.sequence-table th,
+.sequence-table td { padding:9px 10px; border-bottom:1px solid var(--border); text-align:left; vertical-align:middle; }
+.sequence-table tr:last-child td { border-bottom:0; }
+.sequence-table th { background:var(--bg3); color:var(--text2); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.45px; }
+.sequence-project-code,
+.sequence-initials,
+.sequence-number-readonly { font-family:'DM Mono',monospace; }
+.sequence-project-code { color:var(--accent); font-size:10px; font-weight:700; }
+.sequence-project-name { margin-top:2px; font-size:12px; font-weight:650; color:var(--text); }
+.sequence-initials { display:inline-flex; padding:2px 7px; border-radius:999px; background:var(--bg3); border:1px solid var(--border); font-size:10px; font-weight:700; }
+.sequence-number-readonly { font-size:12px; font-weight:700; color:var(--text2); }
+.sequence-next-input { width:100px; min-width:90px; font-family:'DM Mono',monospace; font-weight:700; }
+.request-sequence-project { margin-top:11px; }
+.request-sequence-project:first-child { margin-top:0; }
+.request-sequence-project-head { display:flex; align-items:center; gap:8px; padding:8px 2px; }
+.request-sequence-project-head strong { font-size:12px; }
+.sequence-empty { padding:12px; border:1px dashed var(--border2); border-radius:var(--radius); color:var(--text2); font-size:12px; }
+.company-branding-link-card { margin-top:16px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+@media (max-width:700px){
+  .sequence-card-header,
+  .company-branding-link-card { align-items:stretch; flex-direction:column; }
+  .sequence-card-header .btn,
+  .company-branding-link-card .btn { width:100%; }
+}

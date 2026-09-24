@@ -1,7 +1,36 @@
 'use strict';
 
-function downloadOrderPDF(){
+async function loadCompanyBrandingForPDF(){
+  const fallback={companyName:'Smart Effects Limited',logoData:null};
+  try{
+    const {data,error}=await sb.from('material_return_branding')
+      .select('company_name,logo_path')
+      .eq('id',1)
+      .single();
+    if(error||!data)return fallback;
+
+    const result={companyName:data.company_name||fallback.companyName,logoData:null};
+    if(!data.logo_path)return result;
+
+    const download=await sb.storage.from('material-return-branding').download(data.logo_path);
+    if(download.error||!download.data)return result;
+
+    result.logoData=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=reject;
+      reader.readAsDataURL(download.data);
+    });
+    return result;
+  }catch(error){
+    console.warn('Company branding unavailable for PDF',error);
+    return fallback;
+  }
+}
+
+async function downloadOrderPDF(){
   if(!_pdfOrder||!_pdfItems)return;
+  const branding=await loadCompanyBrandingForPDF();
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const order=_pdfOrder;
@@ -15,29 +44,61 @@ function downloadOrderPDF(){
   const pageW=210;
   const M=18;
   const orderId='#'+String(order.id).slice(-8).toUpperCase();
+  const documentRef=order.document_name||order.order_number||orderId;
 
-  // ── Header bar ──────────────────────────────────────────
+  // ── Branded header ───────────────────────────────────────
   doc.setFillColor(...C_ORANGE);
-  doc.rect(0,0,pageW,24,'F');
-  doc.setTextColor(...C_WHITE);
-  doc.setFontSize(14);doc.setFont('helvetica','bold');
-  doc.text('SiteOrders',M,10);
-  doc.setFontSize(8);doc.setFont('helvetica','normal');
-  doc.text('Construction Management',M,16);
-  doc.setFontSize(11);doc.setFont('helvetica','bold');
-  doc.text('MATERIAL REQUEST ORDER',pageW-M,10,{align:'right'});
-  doc.setFontSize(9);doc.setFont('helvetica','normal');
-  doc.text(orderId,pageW-M,17,{align:'right'});
+  doc.rect(0,0,pageW,3,'F');
+  doc.setFillColor(...C_WHITE);
+  doc.rect(0,3,pageW,27,'F');
 
-  let y=32;
+  let companyX=M;
+  if(branding.logoData){
+    try{
+      const props=doc.getImageProperties(branding.logoData);
+      const scale=Math.min(38/props.width,17/props.height);
+      const logoW=props.width*scale;
+      const logoH=props.height*scale;
+      doc.addImage(branding.logoData,'PNG',M,6,logoW,logoH);
+      companyX=M+logoW+5;
+    }catch(error){
+      console.warn('Logo could not be rendered in Material Request PDF',error);
+    }
+  }
+
+  doc.setTextColor(...C_DARK);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  const companyLines=doc.splitTextToSize(branding.companyName||'Smart Effects Limited',50).slice(0,2);
+  doc.text(companyLines,companyX,11);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...C_GRAY);
+  doc.text('Construction Management',companyX,24);
+
+  doc.setTextColor(...C_DARK);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(12);
+  doc.text('MATERIAL REQUEST',pageW-M,11,{align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C_GRAY);
+  const refLines=doc.splitTextToSize(String(documentRef),78).slice(0,2);
+  doc.text(refLines,pageW-M,17,{align:'right'});
+
+  doc.setDrawColor(...C_BORDER);
+  doc.setLineWidth(0.25);
+  doc.line(M,30,pageW-M,30);
+
+  let y=39;
 
   // ── Status pill ─────────────────────────────────────────
-  const pillColors={pending:[251,191,36],approved:[74,222,128],rejected:[248,113,113],delivered:[96,165,250]};
+  const pillColors={pending:[251,191,36],approved:[74,222,128],awaiting_receipt:[96,165,250],partial:[251,191,36],completed:[74,222,128],rejected:[248,113,113],delivered:[96,165,250]};
   const pc=pillColors[order.status]||C_GRAY;
   doc.setFillColor(...pc);
-  doc.roundedRect(M,y-5,32,7,2,2,'F');
-  doc.setTextColor(...C_DARK);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  doc.text((order.status||'pending').toUpperCase(),M+16,y,{align:'center'});
+  doc.roundedRect(M,y-5,36,7,2,2,'F');
+  doc.setTextColor(...C_DARK);doc.setFontSize(7.5);doc.setFont('helvetica','bold');
+  doc.text((order.status||'pending').replaceAll('_',' ').toUpperCase(),M+18,y,{align:'center'});
 
   // ── Generated date ──────────────────────────────────────
   doc.setTextColor(...C_GRAY);doc.setFontSize(8);doc.setFont('helvetica','normal');
@@ -52,14 +113,15 @@ function downloadOrderPDF(){
     doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(...C_DARK);
     doc.text(String(value||'–'),x,yy+5);
   }
-  infoBlock(col1,y,'SITE / PROJECT',order.proyectos?.nombre||'–');
+  infoBlock(col1,y,'SITE / PROJECT',order.project_name_snapshot||order.proyectos?.nombre||'–');
   infoBlock(col2,y,'URGENCY',(order.urgencia||'normal').toUpperCase());
   y+=13;
-  infoBlock(col1,y,'REQUESTED BY',order.profiles?.full_name||currentProfile?.full_name||'–');
-  if(order.delivery_date)infoBlock(col2,y,'REQUIRED BY',new Date(order.delivery_date).toLocaleDateString('en',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}));
+  infoBlock(col1,y,'REQUESTED BY',order.requested_by_name||order.profiles?.full_name||currentProfile?.full_name||'–');
+  if(order.delivery_date)infoBlock(col2,y,'REQUIRED BY',new Date(order.delivery_date+'T00:00:00').toLocaleDateString('en',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}));
   y+=13;
   if(order.created_at){
     infoBlock(col1,y,'ORDER DATE',new Date(order.created_at).toLocaleDateString('en',{day:'2-digit',month:'short',year:'numeric'}));
+    infoBlock(col2,y,'ORDER NO.',order.order_number||orderId);
     y+=13;
   }
   if(order.notas){
@@ -75,20 +137,20 @@ function downloadOrderPDF(){
   doc.setDrawColor(...C_BORDER);doc.setLineWidth(0.3);
   doc.line(M,y,pageW-M,y);y+=7;
 
-  // ── Materials label ──────────────────────────────────────
+  // ── Materials label ─────────────────────────────────────
   doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(...C_GRAY);
   doc.text('MATERIALS',M,y);y+=4;
 
-  // ── Materials table ──────────────────────────────────────
+  // ── Materials table ─────────────────────────────────────
   const rows=(items||[]).map(it=>[
-    it.materiales?.id_material||'–',
-    it.materiales?.nombre||'–',
-    `${it.cantidad||''} ${it.materiales?.unidad_medida||''}`.trim(),
-    it.notas||''
+    it.material_code_snapshot||it.materiales?.id_material||'–',
+    it.material_name_snapshot||it.materiales?.nombre||'–',
+    `${it.cantidad||''} ${it.unit_snapshot||it.materiales?.unidad_medida||''}`.trim(),
+    it.observation||it.notas||''
   ]);
   doc.autoTable({
     startY:y,
-    margin:{left:M,right:M},
+    margin:{left:M,right:M,bottom:18},
     head:[['ID','Material','Qty','Notes']],
     body:rows.length?rows:[['–','No items','','']],
     styles:{fontSize:9,cellPadding:3.5,textColor:C_DARK,lineColor:C_BORDER,lineWidth:0.2},
@@ -97,16 +159,20 @@ function downloadOrderPDF(){
     columnStyles:{0:{cellWidth:30,fontStyle:'bold'},2:{cellWidth:28,halign:'right'},3:{cellWidth:45}}
   });
 
-  // ── Footer bar ───────────────────────────────────────────
-  const pH=doc.internal.pageSize.getHeight();
-  doc.setFillColor(...C_DARK);
-  doc.rect(0,pH-10,pageW,10,'F');
-  doc.setFontSize(7);doc.setTextColor(...C_GRAY);
-  doc.text('SiteOrders · Construction Management',M,pH-4);
-  doc.text(`${orderId} · ${new Date().getFullYear()}`,pageW-M,pH-4,{align:'right'});
+  // ── Footer on all pages ─────────────────────────────────
+  const total=doc.internal.getNumberOfPages();
+  for(let page=1;page<=total;page++){
+    doc.setPage(page);
+    const pH=doc.internal.pageSize.getHeight();
+    doc.setFillColor(...C_DARK);
+    doc.rect(0,pH-10,pageW,10,'F');
+    doc.setFontSize(7);doc.setTextColor(...C_GRAY);
+    doc.text(`${branding.companyName||'Smart Effects Limited'} · SiteOrders`,M,pH-4);
+    doc.text(`${order.order_number||orderId} · Page ${page}/${total}`,pageW-M,pH-4,{align:'right'});
+  }
 
-  // ── Save ─────────────────────────────────────────────────
-  doc.save(`SiteOrders_${orderId}_${new Date().toISOString().slice(0,10)}.pdf`);
+  const fileName=sanitizeDocumentFileName(order.document_name||`MATERIAL REQUEST - ${order.order_number||orderId}`)+'.pdf';
+  doc.save(fileName);
 }
 
 async function downloadOrderExcel(){

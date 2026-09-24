@@ -35,128 +35,174 @@ async function downloadOrderPDF(){
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const order=_pdfOrder;
   const items=_pdfItems;
-  const C_ORANGE=[249,115,22];
+
+  // Material Request identity: green. Status remains workflow-dependent.
+  const C_GREEN=[31,122,84];
+  const C_DARK_GREEN=[22,78,57];
   const C_DARK=[20,20,22];
-  const C_GRAY=[120,120,140];
-  const C_LIGHT=[245,245,250];
+  const C_GRAY=[104,112,122];
+  const C_LIGHT=[244,249,246];
   const C_WHITE=[255,255,255];
-  const C_BORDER=[210,210,220];
+  const C_BORDER=[205,220,212];
   const pageW=210;
-  const M=18;
+  const M=14;
   const orderId='#'+String(order.id).slice(-8).toUpperCase();
   const documentRef=order.document_name||order.order_number||orderId;
 
-  // ── Branded header ───────────────────────────────────────
-  doc.setFillColor(...C_ORANGE);
+  // ── Compact branded header ───────────────────────────────
+  doc.setFillColor(...C_GREEN);
   doc.rect(0,0,pageW,3,'F');
-  doc.setFillColor(...C_WHITE);
-  doc.rect(0,3,pageW,27,'F');
 
-  let companyX=M;
+  let logoRight=M;
+  let logoBottom=8;
   if(branding.logoData){
     try{
       const props=doc.getImageProperties(branding.logoData);
-      const scale=Math.min(38/props.width,17/props.height);
+      // Three times the previous 38 x 17 mm maximum.
+      const scale=Math.min(114/props.width,51/props.height);
       const logoW=props.width*scale;
       const logoH=props.height*scale;
-      doc.addImage(branding.logoData,'PNG',M,6,logoW,logoH);
-      companyX=M+logoW+5;
+      const logoY=5;
+      doc.addImage(branding.logoData,'PNG',M,logoY,logoW,logoH);
+      logoRight=M+logoW;
+      logoBottom=logoY+logoH;
     }catch(error){
       console.warn('Logo could not be rendered in Material Request PDF',error);
     }
   }
 
-  doc.setTextColor(...C_DARK);
+  // Keep text close to the logo while preserving the large brand mark.
+  const rightX=pageW-M;
+  const textLeft=Math.min(Math.max(logoRight+2,118),rightX-46);
   doc.setFont('helvetica','bold');
+  doc.setTextColor(...C_DARK_GREEN);
   doc.setFontSize(10);
-  const companyLines=doc.splitTextToSize(branding.companyName||'Smart Effects Limited',50).slice(0,2);
-  doc.text(companyLines,companyX,11);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7);
-  doc.setTextColor(...C_GRAY);
-  doc.text('Construction Management',companyX,24);
+  const companyLines=doc.splitTextToSize(branding.companyName||'Smart Effects Limited',rightX-textLeft).slice(0,2);
+  doc.text(companyLines,rightX,10,{align:'right'});
 
-  doc.setTextColor(...C_DARK);
-  doc.setFont('helvetica','bold');
   doc.setFontSize(12);
-  doc.text('MATERIAL REQUEST',pageW-M,11,{align:'right'});
+  doc.text('MATERIAL REQUEST',rightX,22,{align:'right'});
   doc.setFont('helvetica','normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(...C_GRAY);
-  const refLines=doc.splitTextToSize(String(documentRef),78).slice(0,2);
-  doc.text(refLines,pageW-M,17,{align:'right'});
+  const refLines=doc.splitTextToSize(String(documentRef),72).slice(0,2);
+  doc.text(refLines,rightX,28,{align:'right'});
+  doc.setFontSize(6.8);
+  doc.text('Construction Management',rightX,39,{align:'right'});
 
+  const headerBottom=Math.max(44,logoBottom+2);
   doc.setDrawColor(...C_BORDER);
   doc.setLineWidth(0.25);
-  doc.line(M,30,pageW-M,30);
+  doc.line(M,headerBottom,pageW-M,headerBottom);
 
-  let y=39;
+  let y=headerBottom+7;
 
-  // ── Status pill ─────────────────────────────────────────
-  const pillColors={pending:[251,191,36],approved:[74,222,128],awaiting_receipt:[96,165,250],partial:[251,191,36],completed:[74,222,128],rejected:[248,113,113],delivered:[96,165,250]};
+  // ── Status pill: color depends on workflow state ─────────
+  const pillColors={
+    pending:[251,191,36],
+    approved:[74,222,128],
+    awaiting_receipt:[96,165,250],
+    partial:[251,191,36],
+    completed:[74,222,128],
+    rejected:[248,113,113],
+    delivered:[96,165,250]
+  };
   const pc=pillColors[order.status]||C_GRAY;
   doc.setFillColor(...pc);
-  doc.roundedRect(M,y-5,36,7,2,2,'F');
-  doc.setTextColor(...C_DARK);doc.setFontSize(7.5);doc.setFont('helvetica','bold');
-  doc.text((order.status||'pending').replaceAll('_',' ').toUpperCase(),M+18,y,{align:'center'});
+  doc.roundedRect(M,y-4.6,36,6.5,1.8,1.8,'F');
+  doc.setTextColor(...C_DARK);
+  doc.setFontSize(7.2);
+  doc.setFont('helvetica','bold');
+  doc.text((order.status||'pending').replaceAll('_',' ').toUpperCase(),M+18,y-0.1,{align:'center'});
 
-  // ── Generated date ──────────────────────────────────────
-  doc.setTextColor(...C_GRAY);doc.setFontSize(8);doc.setFont('helvetica','normal');
-  doc.text('Generated: '+new Date().toLocaleString('en',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),pageW-M,y,{align:'right'});
-  y+=12;
+  doc.setTextColor(...C_GRAY);
+  doc.setFontSize(7.2);
+  doc.setFont('helvetica','normal');
+  doc.text(
+    'Generated: '+new Date().toLocaleString('en',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    pageW-M,y,{align:'right'}
+  );
+  y+=9;
 
-  // ── Info blocks ─────────────────────────────────────────
+  // ── Compact info blocks ──────────────────────────────────
   const col1=M, col2=M+(pageW-M*2)/2+2;
   function infoBlock(x,yy,label,value){
-    doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(...C_GRAY);
+    doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(...C_GRAY);
     doc.text(label,x,yy);
-    doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(...C_DARK);
-    doc.text(String(value||'–'),x,yy+5);
+    doc.setFontSize(8.8);doc.setFont('helvetica','normal');doc.setTextColor(...C_DARK);
+    doc.text(String(value||'–'),x,yy+3.8);
   }
+
   infoBlock(col1,y,'SITE / PROJECT',order.project_name_snapshot||order.proyectos?.nombre||'–');
   infoBlock(col2,y,'URGENCY',(order.urgencia||'normal').toUpperCase());
-  y+=13;
+  y+=9.5;
+
   infoBlock(col1,y,'REQUESTED BY',order.requested_by_name||order.profiles?.full_name||currentProfile?.full_name||'–');
-  if(order.delivery_date)infoBlock(col2,y,'REQUIRED BY',new Date(order.delivery_date+'T00:00:00').toLocaleDateString('en',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}));
-  y+=13;
+  if(order.delivery_date){
+    infoBlock(col2,y,'REQUIRED BY',new Date(order.delivery_date+'T00:00:00').toLocaleDateString('en',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}));
+  }
+  y+=9.5;
+
   if(order.created_at){
     infoBlock(col1,y,'ORDER DATE',new Date(order.created_at).toLocaleDateString('en',{day:'2-digit',month:'short',year:'numeric'}));
     infoBlock(col2,y,'ORDER NO.',order.order_number||orderId);
-    y+=13;
+    y+=9.5;
   }
+
   if(order.notas){
-    doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(...C_GRAY);
-    doc.text('NOTES',col1,y);y+=4;
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(...C_DARK);
+    doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(...C_GRAY);
+    doc.text('NOTES',col1,y);y+=3.2;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(...C_DARK);
     const lines=doc.splitTextToSize(order.notas,pageW-M*2);
-    doc.text(lines,col1,y);y+=lines.length*5+4;
+    doc.text(lines,col1,y);
+    y+=lines.length*3.8+2;
   }
-  y+=3;
 
-  // ── Divider ─────────────────────────────────────────────
-  doc.setDrawColor(...C_BORDER);doc.setLineWidth(0.3);
-  doc.line(M,y,pageW-M,y);y+=7;
+  doc.setDrawColor(...C_BORDER);
+  doc.setLineWidth(0.25);
+  doc.line(M,y,pageW-M,y);
+  y+=4.5;
 
-  // ── Materials label ─────────────────────────────────────
-  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(...C_GRAY);
-  doc.text('MATERIALS',M,y);y+=4;
+  doc.setFontSize(7.2);
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(...C_DARK_GREEN);
+  doc.text('MATERIALS',M,y);
+  y+=2.8;
 
-  // ── Materials table ─────────────────────────────────────
+  // ── Dense materials table ────────────────────────────────
   const rows=(items||[]).map(it=>[
     it.material_code_snapshot||it.materiales?.id_material||'–',
     it.material_name_snapshot||it.materiales?.nombre||'–',
     `${it.cantidad||''} ${it.unit_snapshot||it.materiales?.unidad_medida||''}`.trim(),
     it.observation||it.notas||''
   ]);
+
   doc.autoTable({
     startY:y,
-    margin:{left:M,right:M,bottom:18},
+    margin:{left:M,right:M,bottom:15},
     head:[['ID','Material','Qty','Notes']],
     body:rows.length?rows:[['–','No items','','']],
-    styles:{fontSize:9,cellPadding:3.5,textColor:C_DARK,lineColor:C_BORDER,lineWidth:0.2},
-    headStyles:{fillColor:C_DARK,textColor:C_WHITE,fontStyle:'bold',fontSize:8},
+    styles:{
+      fontSize:8,
+      cellPadding:{top:1.25,right:1.6,bottom:1.25,left:1.6},
+      textColor:C_DARK,
+      lineColor:C_BORDER,
+      lineWidth:0.15,
+      minCellHeight:0
+    },
+    headStyles:{
+      fillColor:C_DARK_GREEN,
+      textColor:C_WHITE,
+      fontStyle:'bold',
+      fontSize:7.4,
+      cellPadding:{top:1.45,right:1.6,bottom:1.45,left:1.6}
+    },
     alternateRowStyles:{fillColor:C_LIGHT},
-    columnStyles:{0:{cellWidth:30,fontStyle:'bold'},2:{cellWidth:28,halign:'right'},3:{cellWidth:45}}
+    columnStyles:{
+      0:{cellWidth:27,fontStyle:'bold'},
+      2:{cellWidth:25,halign:'right'},
+      3:{cellWidth:42}
+    }
   });
 
   // ── Footer on all pages ─────────────────────────────────
@@ -164,11 +210,11 @@ async function downloadOrderPDF(){
   for(let page=1;page<=total;page++){
     doc.setPage(page);
     const pH=doc.internal.pageSize.getHeight();
-    doc.setFillColor(...C_DARK);
-    doc.rect(0,pH-10,pageW,10,'F');
-    doc.setFontSize(7);doc.setTextColor(...C_GRAY);
-    doc.text(`${branding.companyName||'Smart Effects Limited'} · SiteOrders`,M,pH-4);
-    doc.text(`${order.order_number||orderId} · Page ${page}/${total}`,pageW-M,pH-4,{align:'right'});
+    doc.setFillColor(...C_DARK_GREEN);
+    doc.rect(0,pH-8,pageW,8,'F');
+    doc.setFontSize(6.6);doc.setTextColor(215,232,223);
+    doc.text(`${branding.companyName||'Smart Effects Limited'} · SiteOrders`,M,pH-3.1);
+    doc.text(`${order.order_number||orderId} · Page ${page}/${total}`,pageW-M,pH-3.1,{align:'right'});
   }
 
   const fileName=sanitizeDocumentFileName(order.document_name||`MATERIAL REQUEST - ${order.order_number||orderId}`)+'.pdf';

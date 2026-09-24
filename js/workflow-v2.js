@@ -184,7 +184,7 @@ const WORKFLOW_PAGE_META={
   pedidos:['My Orders','Orders requested for me'],
   'nuevo-pedido':['New Order','Submit a material request'],
   'material-returns':['Material Returns','Save and edit return lists'],
-  'return-branding':['Return Branding','Company name and logo for return PDFs'],
+  'return-branding':['Company Branding','Company name and logo for document PDFs'],
   materiales:['Material Catalog','Browse available materials'],
   'admin-pedidos':['Orders','Workflow and material requests'],
   'admin-materiales':['Inventory','Material catalog administration'],
@@ -215,7 +215,7 @@ function navigateTo(page){
   else if(page==='admin-materiales')renderAdminMaterials();
   else if(page==='admin-usuarios')loadUsers();
   else if(page==='admin-proyectos')renderProjects();
-  else if(page==='admin-settings'){renderCategoriesList();renderUnitsList();}
+  else if(page==='admin-settings'){renderCategoriesList();renderUnitsList();loadDocumentSequenceSettings();}
   closeSidebar();
 }
 

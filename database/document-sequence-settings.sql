@@ -10,10 +10,17 @@ as $$
 declare
   v_returns jsonb;
   v_requests jsonb;
+  v_request_padding integer;
 begin
   if not public.is_active_admin() then
     raise exception using errcode='42501', message='Administrator access required.';
   end if;
+
+  select coalesce(project_sequence_padding,2)
+  into v_request_padding
+  from public.app_settings
+  where id=1;
+  v_request_padding:=coalesce(v_request_padding,2);
 
   select coalesce(jsonb_agg(
     jsonb_build_object(
@@ -76,7 +83,9 @@ begin
 
   return jsonb_build_object(
     'material_returns', v_returns,
-    'material_requests', v_requests
+    'material_requests', v_requests,
+    'material_return_padding', 3,
+    'material_request_padding', v_request_padding
   );
 end;
 $$;

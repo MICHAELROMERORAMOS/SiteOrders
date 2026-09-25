@@ -69,10 +69,29 @@ function renderUsersList(){
   c.innerHTML=`<div class="table-wrap"><table><thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-async function approveUser(id){await sb.from('profiles').update({status:'activo'}).eq('id',id);await loadUsers();}
-async function rejectUser(id){if(!confirm('Reject this user?'))return;await sb.from('profiles').update({status:'inactivo'}).eq('id',id);await loadUsers();}
-async function changeUserRole(id,role){await sb.from('profiles').update({role}).eq('id',id);await loadUsers();}
+async function approveUser(id){
+  const{error}=await sb.rpc('manage_user_status_v2',{p_user_id:id,p_status:'activo'});
+  if(error){alert(error.message);await loadUsers();return;}
+  await loadUsers();
+}
+
+async function rejectUser(id){
+  if(!confirm('Reject this user?'))return;
+  const{error}=await sb.rpc('manage_user_status_v2',{p_user_id:id,p_status:'inactivo'});
+  if(error){alert(error.message);await loadUsers();return;}
+  await loadUsers();
+}
+
+async function changeUserRole(id,role){
+  const{error}=await sb.rpc('manage_user_role_v2',{p_user_id:id,p_role:role});
+  if(error){alert(error.message);await loadUsers();return;}
+  await loadUsers();
+}
+
 async function toggleUserStatus(id,current){
   if(id===currentUser.id)return;
-  await sb.from('profiles').update({status:current==='activo'?'inactivo':'activo'}).eq('id',id);await loadUsers();
+  const next=current==='activo'?'inactivo':'activo';
+  const{error}=await sb.rpc('manage_user_status_v2',{p_user_id:id,p_status:next});
+  if(error){alert(error.message);await loadUsers();return;}
+  await loadUsers();
 }

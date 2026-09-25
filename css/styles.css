@@ -717,3 +717,22 @@ tr:hover td {
   .sequence-card-header .btn,
   .company-branding-link-card .btn { width:100%; }
 }
+
+
+/* Material image input */
+.img-upload-area.drag-over,
+.img-upload-area:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(231,102,30,0.10);
+  outline: none;
+}
+.material-image-status {
+  margin-top: 7px;
+  min-height: 16px;
+  color: var(--text3);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+.material-image-status.error {
+  color: var(--red);
+}

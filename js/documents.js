@@ -202,6 +202,38 @@ async function downloadOrderPDF(){
       0:{cellWidth:27,fontStyle:'bold'},
       2:{cellWidth:25,halign:'right'},
       3:{cellWidth:42}
+    },
+    didParseCell:data=>{
+      if(data.section!=='body'||data.column.index!==0)return;
+      const item=items?.[data.row.index];
+      if(item?.materiales?.imagen_url){
+        data.cell.styles.textColor=C_GREEN;
+        data.cell.styles.fontStyle='bold';
+      }
+    },
+    didDrawCell:data=>{
+      if(data.section!=='body'||data.column.index!==0)return;
+      const item=items?.[data.row.index];
+      const imageUrl=item?.materiales?.imagen_url;
+      if(!imageUrl)return;
+
+      // Make the SKU itself the clickable link to the material image.
+      doc.link(data.cell.x,data.cell.y,data.cell.width,data.cell.height,{url:imageUrl});
+
+      const sku=String(
+        item.material_code_snapshot||
+        item.materiales?.id_material||
+        ''
+      );
+      if(sku){
+        const padLeft=1.6;
+        const maxWidth=Math.max(0,data.cell.width-padLeft*2);
+        const underlineWidth=Math.min(doc.getTextWidth(sku),maxWidth);
+        const underlineY=data.cell.y+data.cell.height-1.15;
+        doc.setDrawColor(...C_GREEN);
+        doc.setLineWidth(0.15);
+        doc.line(data.cell.x+padLeft,underlineY,data.cell.x+padLeft+underlineWidth,underlineY);
+      }
     }
   });
 

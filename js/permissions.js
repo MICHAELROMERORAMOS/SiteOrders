@@ -9,6 +9,7 @@ function isWorkerRole(){return workflowRole()==='worker';}
 function isSupervisorRole(){return workflowRole()==='supervisor';}
 function isStoreRole(){return workflowRole()==='store';}
 function isAdminRole(){return workflowRole()==='admin';}
+function isOwnerAccount(){return isAdminRole() && currentProfile?.is_owner===true;}
 
 function canCreateOrder(){return isWorkerRole()||isSupervisorRole()||isAdminRole();}
 function canSeeManagedOrders(){return isSupervisorRole()||isStoreRole()||isAdminRole();}

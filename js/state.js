@@ -4,7 +4,7 @@ let sb, currentUser=null, currentProfile=null;
 let _pdfOrder=null, _pdfItems=null;
 let allMaterials=[], allOrders=[], allProjects=[], allUsers=[], allCategories=[], allUnits=[];
 let orderItems=[], editingMaterialId=null, editingProjectId=null, currentUserTab='pending', currentPage='dashboard';
-let selectedMaterialImageUrl='', storedImageLibrary=[], shareImageSourceMaterial=null, selectedShareMaterialIds=new Set();
+let selectedMaterialImageUrl='', selectedMaterialImageFile=null, storedImageLibrary=[], shareImageSourceMaterial=null, selectedShareMaterialIds=new Set();
 let catalogPage=1, adminMatPage=1, newOrderMatPage=1;
 const PAGE_SIZE=10;
 const ORDER_DRAFT_VERSION=1;

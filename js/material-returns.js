@@ -483,6 +483,17 @@ async function downloadMaterialReturnPDF(){
   }
 
   const record=recordResult.data,items=itemsResult.data||[],brand=brandResult.data;
+
+  let returnedBy=currentProfile?.full_name?.trim()||currentUser?.email||'User';
+  const returnActorId=record.submitted_by||record.created_by;
+  if(returnActorId){
+    const {data:returnActor}=await sb.from('profiles')
+      .select('full_name,email')
+      .eq('id',returnActorId)
+      .maybeSingle();
+    returnedBy=returnActor?.full_name?.trim()||returnActor?.email||returnedBy;
+  }
+
   if(record.status!=='submitted'){mrStatus('Send the return for review before generating the PDF.',true);return;}
   if(!record.project_id||!items.length){mrStatus('Select a project and at least one material first.',true);return;}
   if(!record.project_sequence){mrStatus('Save the project first to assign a return number.',true);return;}
@@ -498,7 +509,7 @@ async function downloadMaterialReturnPDF(){
     const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),margin=12;
     const navy=[24,46,70],teal=[16,119,128],muted=[86,101,117],pale=[240,247,249];
     const number=mrNumber(record.project_sequence);
-    const generatedBy=currentProfile.full_name?.trim()||currentUser.email||'User';
+    const generatedBy=returnedBy;
 
     const props=doc.getImageProperties(logoData);
     const scale=Math.min(118/props.width,48/props.height);

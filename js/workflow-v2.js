@@ -33,6 +33,7 @@ function wfFormatDate(value){
 }
 
 function wfRoleLabel(){
+  if(isOwnerAccount())return '👑 Owner';
   const labels={worker:'👷 Worker',supervisor:'🦺 Supervisor',store:'📦 Store',admin:'⭐ Administrator'};
   return labels[workflowRole()]||workflowRole();
 }
@@ -653,23 +654,101 @@ async function saveMaterial(){
 
 function renderUsersList(){
   if(!isAdminRole())return;
-  const users=currentUserTab==='pending'?allUsers.filter(u=>u.status==='pendiente'):allUsers;
+
+  const actorIsOwner=isOwnerAccount();
+  const users=currentUserTab==='pending'
+    ? allUsers.filter(u=>u.status==='pendiente')
+    : allUsers;
   const c=document.getElementById('users-list');
-  if(!users.length){c.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No users found</div></div>';return;}
-  if(currentUserTab==='pending'){
-    c.innerHTML=users.map(u=>`<div class="user-pending-card"><div class="user-avatar" style="width:40px;height:40px">${wfEscape((u.full_name||u.email||'?')[0].toUpperCase())}</div><div style="flex:1"><div class="user-pending-name">${wfEscape(u.full_name||'–')}</div><div class="user-pending-meta">${wfEscape(u.email||'')}</div></div><button class="btn btn-danger btn-sm" onclick="rejectUser('${u.id}')">Reject</button><button class="btn btn-success btn-sm" onclick="approveUser('${u.id}')">Approve</button></div>`).join('');
+
+  if(!users.length){
+    c.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">No users found</div></div>';
     return;
   }
+
+  if(currentUserTab==='pending'){
+    c.innerHTML=users.map(u=>`
+      <div class="user-pending-card">
+        <div class="user-avatar" style="width:40px;height:40px">${wfEscape((u.full_name||u.email||'?')[0].toUpperCase())}</div>
+        <div style="flex:1">
+          <div class="user-pending-name">${wfEscape(u.full_name||'–')}</div>
+          <div class="user-pending-meta">${wfEscape(u.email||'')}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="rejectUser('${u.id}')">Reject</button>
+        <button class="btn btn-success btn-sm" onclick="approveUser('${u.id}')">Approve</button>
+      </div>`
+    ).join('');
+    return;
+  }
+
   const rows=users.map(u=>{
     const self=u.id===currentUser.id;
+    const targetIsOwner=u.is_owner===true;
     const role=u.role==='encargado'?'worker':u.role;
-    const roleControl=self?'<span class="badge badge-orange">Admin (you)</span>':`<select class="form-input" style="width:135px;font-size:12px" onchange="changeUserRole('${u.id}',this.value)" ${u.status==='pendiente'?'disabled':''}><option value="encargado" ${role==='worker'?'selected':''}>Worker</option><option value="supervisor" ${role==='supervisor'?'selected':''}>Supervisor</option><option value="store" ${role==='store'?'selected':''}>Store</option><option value="admin" ${role==='admin'?'selected':''}>Admin</option></select>`;
-    const status=u.status==='activo'?'<span class="badge badge-green">Active</span>':u.status==='pendiente'?'<span class="badge badge-yellow">Pending</span>':'<span class="badge badge-red">Inactive</span>';
-    const projectBtn=role==='supervisor'?`<button class="btn btn-secondary btn-xs" onclick="openSupervisorProjects('${u.id}','${String(u.full_name||'Supervisor').replace(/'/g,"&#39;")}')">Projects</button>`:'';
-    const toggle=self?'—':u.status==='pendiente'?`<button class="btn btn-success btn-xs" onclick="approveUser('${u.id}')">Approve</button>`:`<button class="btn ${u.status==='activo'?'btn-danger':'btn-success'} btn-xs" onclick="toggleUserStatus('${u.id}','${u.status}')">${u.status==='activo'?'Deactivate':'Activate'}</button>`;
-    return `<tr><td><b>${wfEscape(u.full_name||'–')}</b><div style="font-size:10px;color:var(--text3)">${wfEscape(u.email||'')}</div></td><td>${roleControl}</td><td>${status}</td><td><div style="display:flex;gap:6px">${projectBtn}${toggle}</div></td></tr>`;
+    const targetIsAdmin=role==='admin';
+    const protectedAdmin=!actorIsOwner&&targetIsAdmin;
+
+    let roleControl='';
+    if(targetIsOwner){
+      roleControl='<span class="badge badge-orange">👑 Owner</span><div style="font-size:10px;color:var(--text3);margin-top:4px">Protected account</div>';
+    }else if(self&&targetIsAdmin){
+      roleControl='<span class="badge badge-orange">⭐ Administrator (you)</span>';
+    }else if(protectedAdmin){
+      roleControl='<span class="badge badge-orange">⭐ Administrator</span><div style="font-size:10px;color:var(--text3);margin-top:4px">Owner controlled</div>';
+    }else{
+      const adminOption=actorIsOwner
+        ? `<option value="admin" ${role==='admin'?'selected':''}>Administrator</option>`
+        : '';
+      roleControl=`<select class="form-input" style="width:150px;font-size:12px" onchange="changeUserRole('${u.id}',this.value)" ${u.status==='pendiente'?'disabled':''}>
+        <option value="encargado" ${role==='worker'?'selected':''}>Worker</option>
+        <option value="supervisor" ${role==='supervisor'?'selected':''}>Supervisor</option>
+        <option value="store" ${role==='store'?'selected':''}>Store</option>
+        ${adminOption}
+      </select>`;
+    }
+
+    const status=u.status==='activo'
+      ? '<span class="badge badge-green">Active</span>'
+      : u.status==='pendiente'
+        ? '<span class="badge badge-yellow">Pending</span>'
+        : '<span class="badge badge-red">Inactive</span>';
+
+    const projectBtn=role==='supervisor'&&!targetIsOwner&&!protectedAdmin
+      ? `<button class="btn btn-secondary btn-xs" onclick="openSupervisorProjects('${u.id}','${String(u.full_name||'Supervisor').replace(/'/g,"&#39;")}')">Projects</button>`
+      : '';
+
+    let toggle='';
+    if(targetIsOwner){
+      toggle='<span style="font-size:11px;color:var(--text3)">Protected</span>';
+    }else if(self){
+      toggle='<span style="font-size:11px;color:var(--text3)">—</span>';
+    }else if(protectedAdmin){
+      toggle='<span style="font-size:11px;color:var(--text3)">Owner only</span>';
+    }else if(u.status==='pendiente'){
+      toggle=`<button class="btn btn-success btn-xs" onclick="approveUser('${u.id}')">Approve</button>`;
+    }else{
+      toggle=`<button class="btn ${u.status==='activo'?'btn-danger':'btn-success'} btn-xs" onclick="toggleUserStatus('${u.id}','${u.status}')">${u.status==='activo'?'Deactivate':'Activate'}</button>`;
+    }
+
+    const ownerMark=targetIsOwner
+      ? ' <span title="Application owner" style="font-size:12px">👑</span>'
+      : '';
+
+    return `<tr>
+      <td>
+        <b>${wfEscape(u.full_name||'–')}${ownerMark}</b>
+        <div style="font-size:10px;color:var(--text3)">${wfEscape(u.email||'')}</div>
+      </td>
+      <td>${roleControl}</td>
+      <td>${status}</td>
+      <td><div style="display:flex;gap:6px;align-items:center">${projectBtn}${toggle}</div></td>
+    </tr>`;
   }).join('');
-  c.innerHTML=`<div class="table-wrap"><table><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  c.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
 }
 
 async function openSupervisorProjects(userId,name){

@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-<link rel="stylesheet" href="./css/styles.css?v=6">
+<link rel="stylesheet" href="./css/styles.css?v=7">
 </head>
 <body>
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -456,15 +456,25 @@
       </div>
       <div class="form-group">
         <label class="form-label">Image</label>
-        <div class="img-upload-area" id="img-upload-area" onclick="document.getElementById('mat-img-file').click()">
-          <div id="img-placeholder"><div style="font-size:26px;margin-bottom:5px">📷</div><div style="font-size:11px;color:var(--text3)">Click to upload image</div></div>
+        <div class="img-upload-area" id="img-upload-area"
+             tabindex="0"
+             onclick="document.getElementById('mat-img-file').click()"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleMaterialImageDrop(event)">
+          <div id="img-placeholder">
+            <div style="font-size:26px;margin-bottom:5px">📷</div>
+            <div style="font-size:11px;color:var(--text3)">Click, drag an image here, or paste a screenshot</div>
+          </div>
           <img id="img-preview-el" class="img-preview" style="display:none">
           <input type="file" id="mat-img-file" accept="image/*" style="display:none" onchange="previewImage(this)">
         </div>
         <div class="image-source-actions">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();pasteMaterialImageFromClipboard()">Paste Image</button>
           <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openImageLibraryModal()">Choose Existing Image</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation();clearMaterialImageSelection()">Clear Image</button>
         </div>
+        <div id="material-image-status" class="material-image-status">Images are compressed automatically before upload.</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -619,14 +629,14 @@
 
 
 <script src="./js/config.js"></script>
-<script src="./js/state.js"></script>
+<script src="./js/state.js?v=2"></script>
 <script src="./js/core.js"></script>
 <script src="./js/settings.js?v=3"></script>
 <script src="./js/projects-data.js"></script>
 <script src="./js/auth.js"></script>
 <script src="./js/navigation.js"></script>
 <script src="./js/orders.js"></script>
-<script src="./js/materials.js"></script>
+<script src="./js/materials.js?v=2"></script>
 <script src="./js/users.js"></script>
 <script src="./js/projects-admin.js"></script>
 <script src="./js/documents.js?v=4"></script>

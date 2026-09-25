@@ -82,13 +82,18 @@ async function downloadOrderPDF(){
 
   doc.setFontSize(12);
   doc.text('MATERIAL REQUEST',rightX,22,{align:'right'});
+
+  // Make the request/document number immediately identifiable.
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10.8);
+  doc.setTextColor(...C_DARK_GREEN);
+  const refLines=doc.splitTextToSize(String(documentRef),82).slice(0,2);
+  doc.text(refLines,rightX,29,{align:'right'});
+
   doc.setFont('helvetica','normal');
-  doc.setFontSize(7.2);
-  doc.setTextColor(...C_GRAY);
-  const refLines=doc.splitTextToSize(String(documentRef),72).slice(0,2);
-  doc.text(refLines,rightX,28,{align:'right'});
   doc.setFontSize(6.8);
-  doc.text('Construction Management',rightX,39,{align:'right'});
+  doc.setTextColor(...C_GRAY);
+  doc.text('Construction Management',rightX,40,{align:'right'});
 
   const headerBottom=Math.max(44,logoBottom+2);
   doc.setDrawColor(...C_BORDER);
@@ -145,7 +150,12 @@ async function downloadOrderPDF(){
 
   if(order.created_at){
     infoBlock(col1,y,'ORDER DATE',new Date(order.created_at).toLocaleDateString('en',{day:'2-digit',month:'short',year:'numeric'}));
-    infoBlock(col2,y,'ORDER NO.',order.order_number||orderId);
+
+    doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(...C_GRAY);
+    doc.text('ORDER NO.',col2,y);
+    doc.setFontSize(10.4);doc.setFont('helvetica','bold');doc.setTextColor(...C_DARK_GREEN);
+    doc.text(String(order.order_number||documentRef||orderId),col2,y+4.2);
+
     y+=9.5;
   }
 

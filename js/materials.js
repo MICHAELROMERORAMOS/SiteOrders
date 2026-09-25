@@ -106,9 +106,158 @@ function renderPaginator(currentPg, totalPages, pageVar, renderFn, containerId){
   return`<div style="display:flex;justify-content:center;align-items:center;gap:5px;margin-top:14px;flex-wrap:wrap">${btns.join('')}</div>`;
 }
 
+function setMaterialImageStatus(message,error=false){
+  const el=document.getElementById('material-image-status');
+  if(!el)return;
+  el.textContent=message||'';
+  el.classList.toggle('error',!!error);
+}
+
+function formatMaterialImageBytes(bytes){
+  const value=Number(bytes)||0;
+  if(value<1024)return `${value} B`;
+  if(value<1024*1024)return `${(value/1024).toFixed(value<10240?1:0)} KB`;
+  return `${(value/(1024*1024)).toFixed(2)} MB`;
+}
+
+async function loadMaterialImageSource(file){
+  if('createImageBitmap' in window){
+    const bitmap=await createImageBitmap(file);
+    return {
+      width:bitmap.width,
+      height:bitmap.height,
+      draw:(ctx,w,h)=>ctx.drawImage(bitmap,0,0,w,h),
+      close:()=>bitmap.close?.()
+    };
+  }
+
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((resolve,reject)=>{
+      const el=new Image();
+      el.onload=()=>resolve(el);
+      el.onerror=()=>reject(new Error('The image could not be opened.'));
+      el.src=url;
+    });
+    return {
+      width:img.naturalWidth||img.width,
+      height:img.naturalHeight||img.height,
+      draw:(ctx,w,h)=>ctx.drawImage(img,0,0,w,h),
+      close:()=>URL.revokeObjectURL(url)
+    };
+  }catch(error){
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
+function canvasToMaterialImageBlob(canvas,type,quality){
+  return new Promise(resolve=>canvas.toBlob(resolve,type,quality));
+}
+
+async function compressMaterialImage(file){
+  if(!file||!String(file.type||'').startsWith('image/')){
+    throw new Error('Please select or paste an image.');
+  }
+
+  const MAX_DIMENSION=1400;
+  const TARGET_BYTES=250*1024;
+  const source=await loadMaterialImageSource(file);
+
+  try{
+    const maxSide=Math.max(source.width,source.height);
+    const needsResize=maxSide>MAX_DIMENSION;
+    const scale=needsResize?MAX_DIMENSION/maxSide:1;
+    const width=Math.max(1,Math.round(source.width*scale));
+    const height=Math.max(1,Math.round(source.height*scale));
+
+    // Small images are kept untouched to avoid unnecessary quality loss.
+    if(!needsResize&&file.size<=TARGET_BYTES){
+      return {file,originalBytes:file.size,finalBytes:file.size,changed:false,width,height};
+    }
+
+    const canvas=document.createElement('canvas');
+    canvas.width=width;
+    canvas.height=height;
+    const ctx=canvas.getContext('2d',{alpha:true});
+    if(!ctx)throw new Error('Image compression is not supported in this browser.');
+
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+    source.draw(ctx,width,height);
+
+    const qualities=[0.82,0.76,0.70,0.64,0.58];
+    let bestBlob=null;
+
+    for(const quality of qualities){
+      const blob=await canvasToMaterialImageBlob(canvas,'image/webp',quality);
+      if(!blob)continue;
+      bestBlob=blob;
+      if(blob.size<=TARGET_BYTES)break;
+    }
+
+    if(!bestBlob){
+      bestBlob=await canvasToMaterialImageBlob(canvas,'image/jpeg',0.76);
+    }
+    if(!bestBlob)throw new Error('The browser could not compress this image.');
+
+    const baseName=String(file.name||'material-image')
+      .replace(/\.[^.]+$/,'')
+      .replace(/[^a-z0-9_-]+/gi,'-')
+      .replace(/^-+|-+$/g,'')||'material-image';
+    const isWebp=bestBlob.type==='image/webp';
+    const finalFile=new File(
+      [bestBlob],
+      `${baseName}.${isWebp?'webp':'jpg'}`,
+      {type:bestBlob.type||'image/webp',lastModified:Date.now()}
+    );
+
+    return {
+      file:finalFile,
+      originalBytes:file.size,
+      finalBytes:finalFile.size,
+      changed:true,
+      width,
+      height
+    };
+  }finally{
+    source.close?.();
+  }
+}
+
+async function applyMaterialImageFile(file,sourceLabel='Image'){
+  if(!file)return;
+  setMaterialImageStatus('Optimizing image...');
+  try{
+    const result=await compressMaterialImage(file);
+    selectedMaterialImageFile=result.file;
+    selectedMaterialImageUrl='';
+
+    const reader=new FileReader();
+    reader.onload=e=>setMaterialImagePreview(e.target.result);
+    reader.readAsDataURL(result.file);
+
+    if(result.changed){
+      setMaterialImageStatus(
+        `${sourceLabel} ready · ${formatMaterialImageBytes(result.originalBytes)} → ${formatMaterialImageBytes(result.finalBytes)} · ${result.width}×${result.height}px`
+      );
+    }else{
+      setMaterialImageStatus(
+        `${sourceLabel} ready · ${formatMaterialImageBytes(result.finalBytes)} · already optimized`
+      );
+    }
+  }catch(error){
+    console.error(error);
+    selectedMaterialImageFile=null;
+    setMaterialImageStatus(error.message||'The image could not be prepared.',true);
+    alert(error.message||'The image could not be prepared.');
+  }
+}
+
 function openMaterialModal(mat=null){
   editingMaterialId=mat?.id||null;
   selectedMaterialImageUrl=mat?.imagen_url||'';
+  selectedMaterialImageFile=null;
 
   document.getElementById('modal-material-title').textContent=mat?'Edit Material':'New Material';
   document.getElementById('mat-id').value=mat?.id_material||'';
@@ -119,6 +268,11 @@ function openMaterialModal(mat=null){
   document.getElementById('mat-img-file').value='';
 
   setMaterialImagePreview(selectedMaterialImageUrl);
+  setMaterialImageStatus(
+    selectedMaterialImageUrl
+      ? 'Existing image selected. New uploads and pasted screenshots are compressed automatically.'
+      : 'Images are compressed automatically before upload.'
+  );
   openModal('modal-material');
 }
 
@@ -144,9 +298,19 @@ function setMaterialImagePreview(url){
 
 function clearMaterialImageSelection(){
   selectedMaterialImageUrl='';
+  selectedMaterialImageFile=null;
   const fileInput=document.getElementById('mat-img-file');
   if(fileInput)fileInput.value='';
   setMaterialImagePreview('');
+  setMaterialImageStatus('Image cleared. Images are compressed automatically before upload.');
+}
+
+function materialImageExtension(file){
+  const type=String(file?.type||'').toLowerCase();
+  if(type==='image/webp')return 'webp';
+  if(type==='image/png')return 'png';
+  if(type==='image/gif')return 'gif';
+  return 'jpg';
 }
 
 async function saveMaterial(){
@@ -160,19 +324,24 @@ async function saveMaterial(){
 
   if(!data.nombre)return alert('Name is required.');
 
-  const fi=document.getElementById('mat-img-file');
-
-  // Uploaded file has priority over an existing selected image.
-  if(fi.files[0]){
-    const file=fi.files[0];
-    const ext=file.name.split('.').pop();
+  if(selectedMaterialImageFile){
+    setMaterialImageStatus('Uploading optimized image...');
+    const file=selectedMaterialImageFile;
+    const ext=materialImageExtension(file);
     const path=`materiales/${Date.now()}.${ext}`;
-    const{error:upErr}=await sb.storage.from('material-images').upload(path,file,{upsert:true});
-    if(upErr)return alert('Image upload error: '+upErr.message);
+    const{error:upErr}=await sb.storage.from('material-images').upload(path,file,{
+      upsert:false,
+      contentType:file.type||undefined,
+      cacheControl:'31536000'
+    });
+    if(upErr){
+      setMaterialImageStatus('Image upload error: '+upErr.message,true);
+      return alert('Image upload error: '+upErr.message);
+    }
     const{data:ud}=sb.storage.from('material-images').getPublicUrl(path);
     data.imagen_url=ud.publicUrl;
   }else if(selectedMaterialImageUrl!==undefined){
-    data.imagen_url=selectedMaterialImageUrl || null;
+    data.imagen_url=selectedMaterialImageUrl||null;
   }
 
   let error;
@@ -183,6 +352,7 @@ async function saveMaterial(){
 
   closeModal('modal-material');
   selectedMaterialImageUrl='';
+  selectedMaterialImageFile=null;
   await loadMaterials();
 }
 
@@ -191,13 +361,65 @@ async function deleteMaterial(id){
   await sb.from('materiales').delete().eq('id',id);await loadMaterials();
 }
 
-function previewImage(input){
+async function previewImage(input){
   if(!input.files[0])return;
-  selectedMaterialImageUrl='';
-  const reader=new FileReader();
-  reader.onload=e=>setMaterialImagePreview(e.target.result);
-  reader.readAsDataURL(input.files[0]);
+  await applyMaterialImageFile(input.files[0],'Selected image');
 }
+
+async function handleMaterialImageDrop(event){
+  event.preventDefault();
+  event.currentTarget?.classList.remove('drag-over');
+  const file=[...(event.dataTransfer?.files||[])].find(f=>String(f.type||'').startsWith('image/'));
+  if(!file){
+    setMaterialImageStatus('Drop an image file here.',true);
+    return;
+  }
+  await applyMaterialImageFile(file,'Dropped image');
+}
+
+async function handleMaterialImagePaste(event){
+  const modal=document.getElementById('modal-material');
+  if(!modal?.classList.contains('open'))return false;
+
+  const items=[...(event.clipboardData?.items||[])];
+  const imageItem=items.find(item=>String(item.type||'').startsWith('image/'));
+  if(!imageItem)return false;
+
+  const file=imageItem.getAsFile();
+  if(!file)return false;
+  event.preventDefault();
+  await applyMaterialImageFile(file,'Pasted image');
+  return true;
+}
+
+async function pasteMaterialImageFromClipboard(){
+  if(!navigator.clipboard?.read){
+    setMaterialImageStatus('Clipboard image access is not available here. Use Ctrl+V / Paste inside this window instead.',true);
+    return;
+  }
+
+  setMaterialImageStatus('Reading image from clipboard...');
+  try{
+    const items=await navigator.clipboard.read();
+    for(const item of items){
+      const type=item.types.find(t=>t.startsWith('image/'));
+      if(!type)continue;
+      const blob=await item.getType(type);
+      const file=new File([blob],`clipboard-${Date.now()}`,{type});
+      await applyMaterialImageFile(file,'Pasted image');
+      return;
+    }
+    setMaterialImageStatus('There is no image in the clipboard.',true);
+  }catch(error){
+    console.warn(error);
+    setMaterialImageStatus('Clipboard access was blocked. Use Ctrl+V / Paste while the material window is open.',true);
+  }
+}
+
+document.addEventListener('paste',event=>{
+  handleMaterialImagePaste(event);
+});
+
 
 async function openImageLibraryModal(){
   document.getElementById('image-library-search').value='';
@@ -267,6 +489,7 @@ function renderImageLibrary(){
 
 function selectExistingImage(url){
   selectedMaterialImageUrl=url;
+  selectedMaterialImageFile=null;
   const fileInput=document.getElementById('mat-img-file');
   if(fileInput)fileInput.value='';
   setMaterialImagePreview(url);
